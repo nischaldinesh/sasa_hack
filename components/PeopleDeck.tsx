@@ -87,7 +87,7 @@ export default function PeopleDeck({
         getKey={(p) => p.userId}
         renderCard={(p) => <PersonCard person={p} />}
         renderBack={(p) => <PersonBackCard person={p} />}
-        hintKey="soonerswipe:hint:people"
+        hintKey="gathergo:hint:people"
         demoCaptions={{
           right: "Swipe right = Connect. If they swipe right too, you ride together.",
           left: "Swipe left = Skip. They won't be told.",

@@ -1,8 +1,8 @@
-# SoonerSwipe
+# GatherGo
 
 **Find your ride. Make a friend.**
 
-SoonerSwipe helps University of Oklahoma students get to events together. Swipe on events you want to go to, say whether you're driving or need a ride, and get matched with Sooners going your way. Gas is split fairly (suggested, never charged), and every trip can turn into a friendship.
+GatherGo helps University of Oklahoma students get to events together. Swipe on events you want to go to, say whether you're driving or need a ride, and get matched with Sooners going your way. Gas is split fairly (suggested, never charged), and every trip can turn into a friendship.
 
 Built for **SASE Hacks for Good**. Only `@ou.edu` accounts can sign up.
 

@@ -22,7 +22,7 @@ export default function DemoResetButton({ name, seeded }: { name: string; seeded
       if (r.error) return;
       try {
         for (const key of Object.keys(window.localStorage)) {
-          if (key.startsWith("soonerswipe:hint:")) window.localStorage.removeItem(key);
+          if (key.startsWith("gathergo:hint:")) window.localStorage.removeItem(key);
         }
       } catch {
         // Storage blocked: the tutorial just won't replay on its own.

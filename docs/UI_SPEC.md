@@ -1,4 +1,4 @@
-# SoonerSwipe UI spec
+# GatherGo UI spec
 
 The UI source of truth is the 9 mockups in `docs/` plus this file. Mockups are
 390 px wide (rendered at 2x). Numbers and names in the mockups are examples:
@@ -37,7 +37,7 @@ a dot while there are unseen matches.
 
 | Element | Data |
 | --- | --- |
-| App icon, "SoonerSwipe", tagline "Find your ride. Make a friend." | static |
+| App icon, "GatherGo", tagline "Find your ride. Make a friend." | static |
 | 3 feature cards (Swipe to connect, Split gas fairly, Leave as friends) | static |
 | "OU Email Address" input, "Continue with OU Email" | validates `@ou.edu` (`lib/auth.ts isOuEmail`) |
 | Step 2 (not in mockup): password + "Sign in"; "New here? Create account" (name + password) | `supabase.auth.signInWithPassword` / `signUp`, then `profiles` row |
@@ -51,7 +51,7 @@ Missing schema fields: none.
 
 | Element | Data |
 | --- | --- |
-| Header logo + "SoonerSwipe", Filter button | Filter opens category chips (from `events.category`) |
+| Header logo + "GatherGo", Filter button | Filter opens category chips (from `events.category`) |
 | Hint "Swipe right if you want to go · left to skip" | static |
 | Card background illustration | generated per `events.category` (inline SVG, `components/EventArt.tsx`) |
 | Trending pill "+N this week" | `event_popularity.new_this_week`, shown when >= 5 |

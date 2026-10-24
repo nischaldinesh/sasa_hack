@@ -30,7 +30,7 @@ async function ensureProfile(supabase: SupabaseClient, user: User) {
   });
   if (insertError) {
     return insertError.code === "23514"
-      ? "Only @ou.edu emails can use SoonerSwipe."
+      ? "Only @ou.edu emails can use GatherGo."
       : insertError.message;
   }
   return null;
@@ -152,7 +152,7 @@ export default function AuthPage() {
       <section className="flex flex-col items-center gap-8 pt-6 text-center md:items-start md:text-left">
         <Logo size="xl" />
         <div>
-          <h1 className="text-4xl font-black tracking-tight md:text-5xl">SoonerSwipe</h1>
+          <h1 className="text-4xl font-black tracking-tight md:text-5xl">GatherGo</h1>
           <p className="mt-2 text-lg text-zinc-500">Find your ride. Make a friend.</p>
         </div>
         <div className="flex w-full max-w-sm flex-col gap-3 text-left">

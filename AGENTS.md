@@ -1,10 +1,10 @@
-# AGENTS.md: SoonerSwipe
+# AGENTS.md: GatherGo
 
 Instructions for any coding agent (or teammate) building this project. Read this whole file before writing code. Follow the milestones in order and verify each one before moving on.
 
 ## 1. Project summary
 
-SoonerSwipe is a mobile first web app for University of Oklahoma students. Students swipe on events, then swipe on other students going to the same event along a similar route. A mutual right swipe creates a shared ride. After the trip, matches can become friends, and the app recommends future events. Gas cost splitting is optional and only suggested, never charged.
+GatherGo is a mobile first web app for University of Oklahoma students. Students swipe on events, then swipe on other students going to the same event along a similar route. A mutual right swipe creates a shared ride. After the trip, matches can become friends, and the app recommends future events. Gas cost splitting is optional and only suggested, never charged.
 
 UI source of truth: images in docs/ and docs/UI_SPEC.md
 

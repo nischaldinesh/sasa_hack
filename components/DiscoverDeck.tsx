@@ -78,7 +78,7 @@ export default function DiscoverDeck({ events }: { events: EventSummary[] }) {
       <header className="flex items-center justify-between gap-3 bg-white px-4 py-3 md:bg-transparent md:px-0 md:pt-0">
         <div className="flex items-center gap-3 md:hidden">
           <Logo />
-          <span className="text-2xl font-extrabold tracking-tight">SoonerSwipe</span>
+          <span className="text-2xl font-extrabold tracking-tight">GatherGo</span>
         </div>
         <h1 className="hidden text-2xl font-black tracking-tight md:block">Discover</h1>
         <button
@@ -142,7 +142,7 @@ export default function DiscoverDeck({ events }: { events: EventSummary[] }) {
           getKey={(e) => e.id}
           renderCard={(e) => <EventSwipeCard event={e} />}
           renderBack={(e) => <EventBackCard event={e} />}
-          hintKey="soonerswipe:hint:discover"
+          hintKey="gathergo:hint:discover"
           demoCaptions={{
             right: "Swipe right = Going. You'll register and we'll find you a ride.",
             left: "Swipe left = Skip. It won't show up again.",

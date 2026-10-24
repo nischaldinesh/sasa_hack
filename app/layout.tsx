@@ -9,9 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: { default: "SoonerSwipe", template: "%s · SoonerSwipe" },
+  title: { default: "GatherGo", template: "%s · GatherGo" },
   description: "Swipe on OU events, find a ride with other Sooners, and split gas fairly.",
-  applicationName: "SoonerSwipe",
+  applicationName: "GatherGo",
 };
 
 export const viewport: Viewport = {

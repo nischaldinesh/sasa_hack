@@ -11,7 +11,7 @@ const STEPS = ["Register for the event", "Tell us how you're getting there", "Me
 
 // "You liked this event": bottom sheet on mobile, centered modal on desktop.
 // Shown for every right swipe. Events with an external registration link open
-// it; other events register (RSVP) inside SoonerSwipe.
+// it; other events register (RSVP) inside GatherGo.
 export default function RegisterSheet({ event, onClose }: { event: EventSummary; onClose: () => void }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

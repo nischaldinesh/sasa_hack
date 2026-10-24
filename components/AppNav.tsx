@@ -48,7 +48,7 @@ function Nav() {
         <div className="mx-auto flex h-16 max-w-[1100px] items-center gap-6 px-6">
           <Link href="/discover" className="flex items-center gap-2.5">
             <Logo size="sm" />
-            <span className="text-lg font-extrabold tracking-tight">SoonerSwipe</span>
+            <span className="text-lg font-extrabold tracking-tight">GatherGo</span>
           </Link>
           <nav className="flex flex-1 items-center gap-1">
             {TABS.map(({ href, label }) => (
