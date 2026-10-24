@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SwipeDeck, { type SwipeDirection } from "@/components/SwipeDeck";
-import PersonCard, { PersonDetailsPanel } from "@/components/PersonCard";
+import PersonCard, { PersonBackCard } from "@/components/PersonCard";
 import MatchScreen, { type Match } from "@/components/MatchScreen";
 import { ChevronLeftIcon } from "@/components/Icons";
 import type { TripDetail } from "@/lib/queries";
@@ -107,7 +107,8 @@ export default function PeopleDeck({
         items={deck.people}
         getKey={(p) => p.userId}
         renderCard={(p) => <PersonCard person={p} />}
-        renderDetails={(p) => <PersonDetailsPanel person={p} />}
+        renderBack={(p) => <PersonBackCard person={p} />}
+        hintKey="soonerswipe:hint:people"
         onSwipe={swipe}
         allowStar
         showProgress

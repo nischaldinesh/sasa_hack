@@ -1,8 +1,10 @@
 -- M5: friend requests, ride reviews, driver perks, driver verification.
 -- Run once in the Supabase SQL Editor, after m4.sql. Safe to run more than once.
 
--- Events: a perk the organizer gives drivers (e.g. "Free parking pass").
+-- Events: a perk the organizer gives drivers (e.g. "Free parking pass"),
+-- and a description for the back of the Discover card.
 alter table public.events add column if not exists driver_perk text;
+alter table public.events add column if not exists description text;
 
 -- Profiles: driver verification. Only the plate and the approval time are
 -- stored; the license photo never leaves the driver's browser (demo check).

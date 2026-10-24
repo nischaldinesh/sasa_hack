@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SwipeDeck, { type SwipeDirection } from "@/components/SwipeDeck";
-import EventSwipeCard, { EventDetailsPanel } from "@/components/EventSwipeCard";
+import EventSwipeCard, { EventBackCard } from "@/components/EventSwipeCard";
 import RegisterSheet from "@/components/RegisterSheet";
 import Logo from "@/components/Logo";
 import { FilterIcon, XIcon } from "@/components/Icons";
@@ -116,7 +116,7 @@ export default function DiscoverDeck({ events }: { events: EventSummary[] }) {
         </div>
       )}
 
-      <p className="text-center text-zinc-500">Swipe right if you want to go · left to skip</p>
+      <p className="text-center text-zinc-500">Swipe right if you want to go · left to skip · tap for details</p>
 
       {error && (
         <p role="alert" className="mx-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">
@@ -130,7 +130,8 @@ export default function DiscoverDeck({ events }: { events: EventSummary[] }) {
           items={deck}
           getKey={(e) => e.id}
           renderCard={(e) => <EventSwipeCard event={e} />}
-          renderDetails={(e) => <EventDetailsPanel event={e} />}
+          renderBack={(e) => <EventBackCard event={e} />}
+          hintKey="soonerswipe:hint:discover"
           onSwipe={handleSwipe}
           paused={liked !== null}
           stamps={{

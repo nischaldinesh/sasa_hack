@@ -16,6 +16,7 @@ export type EventRow = {
   requires_registration: boolean;
   registration_url: string | null;
   driver_perk: string | null;
+  description: string | null;
 };
 
 export type AttendanceRow = {

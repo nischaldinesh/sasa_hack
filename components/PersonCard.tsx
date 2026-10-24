@@ -98,41 +98,52 @@ export default function PersonCard({ person }: { person: PersonCardData }) {
   );
 }
 
-// Desktop side panel next to the people deck card.
-export function PersonDetailsPanel({ person }: { person: PersonCardData }) {
+// Back of the person card: full details (tap to flip).
+export function PersonBackCard({ person }: { person: PersonCardData }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-wider text-crimson">{person.role === "driver" ? "Driver" : "Rider"}</p>
-        <h3 className="mt-1 text-xl font-black">{person.name}</h3>
-        <p className="text-sm text-zinc-500">{[person.major, person.year].filter(Boolean).join(" · ")}</p>
-      </div>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
-        <dt className="text-zinc-400">Pickup</dt>
-        <dd className="font-semibold">{person.pickupPoint ?? "—"}</dd>
-        <dt className="text-zinc-400">Distance</dt>
-        <dd className="font-semibold">{formatMiles(person.distanceMiles)} from your pickup</dd>
-        <dt className="text-zinc-400">Leaves</dt>
-        <dd className="font-semibold">{person.departTime ? formatEventTime(person.departTime) : "—"}</dd>
-        {person.role === "driver" && (
-          <>
-            <dt className="text-zinc-400">Seats</dt>
-            <dd className="font-semibold">{person.seatsLeft} open</dd>
-            <dt className="text-zinc-400">Car</dt>
-            <dd className="font-semibold">{person.mpg ? `${person.mpg} mpg` : "—"}</dd>
-            <dt className="text-zinc-400">Rating</dt>
-            <dd className="font-semibold">{person.rating != null ? `★ ${person.rating.toFixed(1)} from ${person.reviews} rides` : "New driver"}</dd>
-            <dt className="text-zinc-400">License</dt>
-            <dd className="font-semibold">{person.verified ? "✓ Verified" : "Not verified"}</dd>
-          </>
-        )}
-      </dl>
-      {person.orgs.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          <OrgBadges orgs={person.orgs} />
+    <article className="flex h-full select-none flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-zinc-300/50">
+      <div className="flex shrink-0 items-center gap-4 border-b border-zinc-100 p-5">
+        <Avatar name={person.name} size="lg" />
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wider text-crimson">{person.role === "driver" ? "Driver" : "Rider"}</p>
+          <h3 className="truncate text-xl font-black">{person.name}</h3>
+          <p className="truncate text-sm text-zinc-500">{[person.major, person.year].filter(Boolean).join(" · ")}</p>
         </div>
-      )}
-      {person.bio && <p className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">&ldquo;{person.bio}&rdquo;</p>}
-    </div>
+      </div>
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-5">
+        {person.bio && (
+          <section>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">About</h4>
+            <p className="mt-1 leading-relaxed text-zinc-700">{person.bio}</p>
+          </section>
+        )}
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          <dt className="text-zinc-400">Pickup</dt>
+          <dd className="font-semibold">{person.pickupPoint ?? "—"}</dd>
+          <dt className="text-zinc-400">Distance</dt>
+          <dd className="font-semibold">{formatMiles(person.distanceMiles)} from your pickup</dd>
+          <dt className="text-zinc-400">Leaves</dt>
+          <dd className="font-semibold">{person.departTime ? formatEventTime(person.departTime) : "—"}</dd>
+          {person.role === "driver" && (
+            <>
+              <dt className="text-zinc-400">Seats</dt>
+              <dd className="font-semibold">{person.seatsLeft} open</dd>
+              <dt className="text-zinc-400">Car</dt>
+              <dd className="font-semibold">{person.mpg ? `${person.mpg} mpg` : "—"}</dd>
+              <dt className="text-zinc-400">Rating</dt>
+              <dd className="font-semibold">{person.rating != null ? `★ ${person.rating.toFixed(1)} from ${person.reviews} rides` : "New driver"}</dd>
+              <dt className="text-zinc-400">License</dt>
+              <dd className="font-semibold">{person.verified ? "✓ Verified" : "Not verified"}</dd>
+            </>
+          )}
+        </dl>
+        {person.orgs.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <OrgBadges orgs={person.orgs} />
+          </div>
+        )}
+      </div>
+      <p className="shrink-0 border-t border-zinc-100 py-3 text-center text-xs font-semibold text-zinc-400">Tap to flip back</p>
+    </article>
   );
 }

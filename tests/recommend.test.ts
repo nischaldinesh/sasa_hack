@@ -20,6 +20,7 @@ function ev(id: string, over: Partial<EventSummary>): EventSummary {
     requires_registration: false,
     registration_url: null,
     driver_perk: null,
+    description: null,
     going: 0,
     interested: 0,
     newThisWeek: 0,

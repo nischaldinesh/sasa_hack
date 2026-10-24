@@ -66,53 +66,65 @@ export default function EventSwipeCard({ event }: { event: EventSummary }) {
   );
 }
 
-// Desktop side panel next to the Discover card.
-export function EventDetailsPanel({ event }: { event: EventSummary }) {
+// Back of the Discover card: description and full details (tap to flip).
+export function EventBackCard({ event }: { event: EventSummary }) {
+  const chips = chipsFor(event);
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        {event.category && <p className="text-xs font-bold uppercase tracking-wider text-crimson">{event.category}</p>}
-        <h3 className="mt-1 text-xl font-black leading-tight">{event.title}</h3>
-        {event.organization && <p className="text-sm text-zinc-500">Hosted by {event.organization}</p>}
+    <article className="flex h-full select-none flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-zinc-400/40">
+      <div className="relative h-28 shrink-0 overflow-hidden">
+        <EventArt category={event.category} className="absolute inset-0" />
+        <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+          {event.category && <p className="text-xs font-extrabold uppercase tracking-wider text-white/80">{event.category}</p>}
+          <h2 className="truncate text-xl font-black">{event.title}</h2>
+        </div>
       </div>
-      <dl className="flex flex-col gap-2 text-sm">
-        <div className="flex gap-2">
-          <CalendarIcon className="mt-0.5 shrink-0 text-zinc-400" />
-          <dd>{formatTimeRange(event.start_time, event.end_time)}</dd>
-        </div>
-        <div className="flex gap-2">
-          <PinIcon className="mt-0.5 shrink-0 text-zinc-400" />
-          <dd>{venueLine(event)}</dd>
-        </div>
-        <div className="flex gap-2">
-          <UsersIcon className="mt-0.5 shrink-0 text-zinc-400" />
-          <dd>
-            {event.going} going · {event.interested} interested · {event.openSeats} open seats
-          </dd>
-        </div>
-      </dl>
-      {event.friendNames.length > 0 && (
-        <p className="text-sm">
-          <b>Friends going:</b> {event.friendNames.join(", ")}
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-5">
+        <section>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">About</h3>
+          <p className="mt-1 leading-relaxed text-zinc-700">
+            {event.description ?? `${event.title}${event.organization ? `, hosted by ${event.organization}` : ""}.`}
+          </p>
+        </section>
+        <dl className="flex flex-col gap-2 text-sm">
+          <div className="flex gap-2.5">
+            <CalendarIcon className="mt-0.5 shrink-0 text-zinc-400" />
+            <dd>{formatTimeRange(event.start_time, event.end_time)}</dd>
+          </div>
+          <div className="flex gap-2.5">
+            <PinIcon className="mt-0.5 shrink-0 text-zinc-400" />
+            <dd>{venueLine(event)}</dd>
+          </div>
+          <div className="flex gap-2.5">
+            <UsersIcon className="mt-0.5 shrink-0 text-zinc-400" />
+            <dd>
+              {event.going} going · {event.interested} interested · {event.openSeats} open {event.openSeats === 1 ? "seat" : "seats"}
+            </dd>
+          </div>
+        </dl>
+        {event.friendNames.length > 0 && (
+          <p className="text-sm">
+            <b>Friends going:</b> {event.friendNames.join(", ")}
+          </p>
+        )}
+        {event.driver_perk && (
+          <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+            🎁 <b>Drivers get:</b> {event.driver_perk}
+          </p>
+        )}
+        {(chips.length > 0 || event.tags.length > 0) && (
+          <div className="flex flex-wrap gap-2">
+            {[...new Set([...chips, ...event.tags])].map((chip) => (
+              <span key={chip} className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-600">
+                {chip}
+              </span>
+            ))}
+          </div>
+        )}
+        <p className="rounded-xl bg-orange-50 p-3 text-sm text-orange-800">
+          {event.registration_url ? "This event needs registration." : "RSVP in the app."} Swipe right and we&apos;ll walk you through it.
         </p>
-      )}
-      {event.tags.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {event.tags.map((tag) => (
-            <span key={tag} className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-600">
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-      {event.driver_perk && (
-        <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-          🎁 <b>Drivers get:</b> {event.driver_perk}
-        </p>
-      )}
-      <p className="rounded-xl bg-orange-50 p-3 text-sm text-orange-800">
-        {event.registration_url ? "This event needs registration." : "RSVP in the app."} We&apos;ll walk you through it.
-      </p>
-    </div>
+      </div>
+      <p className="shrink-0 border-t border-zinc-100 py-3 text-center text-xs font-semibold text-zinc-400">Tap to flip back</p>
+    </article>
   );
 }
