@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { joinEvent, type ActionResult } from "@/app/events/actions";
+import { useActionState, useState, useTransition } from "react";
+import { joinEvent, leaveEvent, type ActionResult } from "@/app/events/actions";
 import { PICKUP_POINTS, type PickupKey } from "@/lib/places";
 import type { Role } from "@/lib/types";
 
 type Props = {
   eventId: string;
+  locked: boolean; // in a trip for this event: role and attendance can't change
   initial: {
     role: Role | null;
     pickup: PickupKey | null;
@@ -18,10 +19,21 @@ type Props = {
 
 const input = "h-12 w-full rounded-xl border border-zinc-300 bg-transparent px-3 text-base dark:border-zinc-700";
 
-export default function JoinForm({ eventId, initial }: Props) {
+export default function JoinForm({ eventId, locked, initial }: Props) {
   const [role, setRole] = useState<Role>(initial.role ?? "rider");
   const [state, action, pending] = useActionState<ActionResult, FormData>(joinEvent, {});
+  const [leaveResult, setLeaveResult] = useState<ActionResult>({});
+  const [leaving, startLeaving] = useTransition();
   const joined = initial.role !== null;
+
+  function leave() {
+    if (!window.confirm("Leave this event? Your swipes for it will be cleared.")) return;
+    startLeaving(async () => {
+      const result = await leaveEvent(eventId);
+      setLeaveResult(result);
+      if (!result.error) setRole("rider");
+    });
+  }
 
   return (
     <form action={action} className="flex flex-col gap-3">
@@ -35,8 +47,9 @@ export default function JoinForm({ eventId, initial }: Props) {
             type="button"
             role="radio"
             aria-checked={role === r}
+            disabled={locked && role !== r}
             onClick={() => setRole(r)}
-            className={`h-14 rounded-2xl border-2 font-semibold ${
+            className={`h-14 rounded-2xl border-2 font-semibold disabled:opacity-40 ${
               role === r
                 ? "border-red-800 bg-red-50 text-red-900 dark:bg-red-950 dark:text-red-200"
                 : "border-zinc-200 text-zinc-500 dark:border-zinc-800"
@@ -46,6 +59,9 @@ export default function JoinForm({ eventId, initial }: Props) {
           </button>
         ))}
       </div>
+      {locked && (
+        <p className="text-xs text-zinc-500">🔒 You&apos;re in a trip for this event, so your role is locked.</p>
+      )}
 
       <label className="flex flex-col gap-1 text-sm font-medium">
         Pickup point
@@ -86,12 +102,13 @@ export default function JoinForm({ eventId, initial }: Props) {
         </>
       )}
 
-      {state.error && (
+      {(state.error || leaveResult.error) && (
         <p role="alert" className="text-sm text-red-600">
-          {state.error}
+          {state.error ?? leaveResult.error}
         </p>
       )}
       {state.message && !pending && <p className="text-sm font-medium text-green-700">{state.message}</p>}
+      {leaveResult.message && !joined && <p className="text-sm font-medium text-green-700">{leaveResult.message}</p>}
 
       <button
         type="submit"
@@ -100,6 +117,16 @@ export default function JoinForm({ eventId, initial }: Props) {
       >
         {pending ? "Saving…" : joined ? "Update my plan" : role === "driver" ? "Join as driver" : "Join as rider"}
       </button>
+      {joined && !locked && (
+        <button
+          type="button"
+          onClick={leave}
+          disabled={leaving}
+          className="h-11 rounded-full text-sm font-medium text-zinc-500 underline disabled:opacity-60"
+        >
+          {leaving ? "Leaving…" : "Leave this event"}
+        </button>
+      )}
     </form>
   );
 }

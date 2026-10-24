@@ -110,5 +110,15 @@ create policy "read friends" on friends for select to authenticated using (true)
 create policy "add friend" on friends for insert to authenticated
   with check (auth.uid() in (user_a, user_b));
 
+create table event_skips (
+  user_id uuid not null references profiles on delete cascade,
+  event_id uuid not null references events on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, event_id)
+);
+alter table event_skips enable row level security;
+create policy "own skips" on event_skips for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
 -- Auth guard: also run supabase/auth_trigger.sql to reject non @ou.edu
 -- emails in auth.users itself.

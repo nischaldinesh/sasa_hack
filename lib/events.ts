@@ -46,8 +46,9 @@ export function buildEventSummaries(input: {
   friends: FriendRow[];
   trips: TripRow[];
   tripRiders: Pick<TripRiderRow, "trip_id">[];
+  skippedIds?: Set<string>;
 }): EventSummary[] {
-  const { userId, events, popularity, attendance, friends, trips, tripRiders } = input;
+  const { userId, events, popularity, attendance, friends, trips, tripRiders, skippedIds } = input;
   const pop = new Map(popularity.map((p) => [p.id, p]));
   const friendIds = friendIdsOf(userId, friends);
   const openSeats = openSeatsByEvent(attendance, trips, tripRiders);
@@ -73,6 +74,7 @@ export function buildEventSummaries(input: {
       openSeats: openSeats.get(e.id) ?? 0,
       myStatus: my?.status ?? null,
       myRole: my?.role ?? null,
+      skipped: skippedIds?.has(e.id) ?? false,
     };
   });
 }

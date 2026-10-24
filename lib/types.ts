@@ -44,6 +44,41 @@ export type EventSummary = EventRow & {
   openSeats: number;
   myStatus: AttendanceStatus | null;
   myRole: Role | null;
+  skipped: boolean;
 };
 
 export type SortKey = "going" | "soonest";
+
+export type ProfileRow = {
+  id: string;
+  name: string;
+  major: string | null;
+  mpg: number | null;
+  interests: string[];
+};
+
+export type PersonCardData = {
+  userId: string;
+  name: string;
+  major: string | null;
+  role: Role;
+  pickupPoint: string | null;
+  distanceMiles: number;
+  departTime: string | null;
+  seatsLeft: number | null; // drivers only
+  mpg: number | null; // drivers only
+  interests: string[];
+};
+
+// "open": swipe on people. "in-trip": rider already in a car for this event.
+// "car-full": driver with every seat matched. "not-going": no role for this event.
+export type DeckStatus = "not-going" | "in-trip" | "car-full" | "open";
+
+export type PersonDeck = {
+  status: DeckStatus;
+  myRole: Role | null;
+  myTripId: string | null;
+  people: PersonCardData[];
+};
+
+export type Partner = { id: string; name: string };

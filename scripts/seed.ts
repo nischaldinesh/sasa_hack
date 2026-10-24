@@ -209,8 +209,12 @@ async function seedAttendance(users: Map<string, string>, events: Map<string, st
   // Clear demo users' rows on any other events (e.g. joined during a demo run).
   check("delete demo attendance", await supabase.from("attendance").delete().in("user_id", userIds));
   check("delete demo swipes", await supabase.from("swipes").delete().in("from_user", userIds));
+  check("delete swipes on demo users", await supabase.from("swipes").delete().in("to_user", userIds));
   check("delete demo trips", await supabase.from("trips").delete().in("driver_id", userIds));
   check("delete demo trip riders", await supabase.from("trip_riders").delete().in("rider_id", userIds));
+  // event_skips exists once supabase/m3.sql has been run.
+  const skips = await supabase.from("event_skips").delete().in("user_id", userIds);
+  if (skips.error && skips.error.code !== "PGRST205") throw new Error(`delete demo skips: ${skips.error.message}`);
 
   const byKey = new Map(EVENTS.map((e) => [e.key, e]));
   const rows = ATTENDANCE.map((a) => {

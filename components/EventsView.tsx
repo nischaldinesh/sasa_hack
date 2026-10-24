@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import SwipeDeck, { type SwipeDirection } from "@/components/SwipeDeck";
 import EventCard, { EventListItem } from "@/components/EventCard";
-import { markInterested } from "@/app/events/actions";
+import { markInterested, markSkipped } from "@/app/events/actions";
 import { filterEvents, sortEvents } from "@/lib/events";
 import type { EventSummary, SortKey } from "@/lib/types";
 
@@ -21,15 +21,14 @@ export default function EventsView({ events }: { events: EventSummary[] }) {
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  // Deck: events I haven't swiped right on or joined yet, most popular first.
-  const deck = useMemo(() => sortEvents(events.filter((e) => !e.myStatus), "going"), [events]);
+  // Deck: events I haven't swiped on or joined yet, most popular first.
+  const deck = useMemo(() => sortEvents(events.filter((e) => !e.myStatus && !e.skipped), "going"), [events]);
   const list = useMemo(() => sortEvents(filterEvents(events, query), sort), [events, query, sort]);
 
   function handleSwipe(event: EventSummary, direction: SwipeDirection) {
-    if (direction !== "right") return;
     setError(null);
     startTransition(async () => {
-      const result = await markInterested(event.id);
+      const result = direction === "right" ? await markInterested(event.id) : await markSkipped(event.id);
       if (result.error) setError(result.error);
     });
   }

@@ -2,9 +2,10 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import JoinForm from "@/components/JoinForm";
+import PeopleSection from "@/components/PeopleSection";
 import { EventStats, StatusBadge, categoryGradient } from "@/components/EventCard";
 import { createClient } from "@/lib/supabase/server";
-import { getEventSummaries } from "@/lib/queries";
+import { getEventSummaries, getPartners, getPersonDeck } from "@/lib/queries";
 import { pickupKeyByName } from "@/lib/places";
 import { formatEventTime, toChicagoInput } from "@/lib/time";
 
@@ -33,8 +34,10 @@ async function EventDetail({ params }: { params: PageProps<"/events/[id]">["para
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
-  const [[event], mine, profile] = await Promise.all([
+  const [[event], deck, { tripId, partners }, mine, profile] = await Promise.all([
     getEventSummaries(supabase, user.id, id),
+    getPersonDeck(supabase, user.id, id),
+    getPartners(supabase, user.id, id),
     supabase
       .from("attendance")
       .select("role, pickup_point, seats, depart_time")
@@ -75,6 +78,8 @@ async function EventDetail({ params }: { params: PageProps<"/events/[id]">["para
         )}
       </section>
 
+      <PeopleSection eventId={event.id} eventTitle={event.title} deck={deck} initialPartners={partners} />
+
       <section className="flex flex-col gap-3 rounded-3xl border border-zinc-200 p-4 dark:border-zinc-800">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">{event.myStatus === "going" ? "Your ride plan" : "Join this event"}</h2>
@@ -82,6 +87,7 @@ async function EventDetail({ params }: { params: PageProps<"/events/[id]">["para
         </div>
         <JoinForm
           eventId={event.id}
+          locked={tripId !== null}
           initial={{
             role: event.myStatus === "going" ? event.myRole : null,
             pickup: pickupKeyByName(mine.data?.pickup_point ?? null),
