@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { animate, motion, useMotionValue, useTransform, type PanInfo } from "framer-motion";
 import { CheckIcon, StarIcon, XIcon } from "@/components/Icons";
+import HandIllustration from "@/components/HandIllustration";
 
 // "up" is a star (super like): a right swipe with extra weight.
 export type SwipeDirection = "left" | "right" | "up";
@@ -21,7 +22,10 @@ type Props<T> = {
   showProgress?: boolean;
   paused?: boolean; // ignore keys while a sheet or modal is open
   hintKey?: string; // localStorage key: show the first time swipe demo once
+  demoCaptions?: { right: string; left: string; tap?: string }; // what each move does
 };
+
+type DemoPhase = "right" | "left" | "tap" | null;
 
 const SWIPE_DISTANCE = 120;
 const SWIPE_VELOCITY = 600;
@@ -65,9 +69,11 @@ export default function SwipeDeck<T>({
   showProgress = false,
   paused = false,
   hintKey,
+  demoCaptions,
 }: Props<T>) {
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [hint, setHint] = useState(false);
+  const [phase, setPhase] = useState<DemoPhase>(null);
   const flyRef = useRef<Fly | null>(null);
   const flipRef = useRef<(() => void) | null>(null);
   const visible = items.filter((item) => !dismissed.has(getKey(item)));
@@ -82,6 +88,7 @@ export default function SwipeDeck<T>({
 
   function endHint() {
     setHint(false);
+    setPhase(null);
     if (hintKey) markHintSeen(hintKey);
   }
 
@@ -150,8 +157,12 @@ export default function SwipeDeck<T>({
             stamps={stamps}
             demo={hint}
             onDemoStop={endHint}
+            onPhase={setPhase}
           />
         </div>
+        {hint && phase && demoCaptions && (
+          <DemoCaption phase={phase} captions={demoCaptions} />
+        )}
       </div>
 
       <div className="mt-4 flex items-center justify-center gap-5">
@@ -213,6 +224,27 @@ export default function SwipeDeck<T>({
   );
 }
 
+// Caption explaining the move the demo hand is making.
+function DemoCaption({ phase, captions }: { phase: Exclude<DemoPhase, null>; captions: NonNullable<Props<unknown>["demoCaptions"]> }) {
+  const text = phase === "tap" ? captions.tap : captions[phase];
+  if (!text) return null;
+  const tone = phase === "right" ? "bg-green-600" : phase === "left" ? "bg-red-600" : "bg-zinc-900";
+  const icon = phase === "right" ? "👉" : phase === "left" ? "👈" : "👆";
+  return (
+    <div className="pointer-events-none absolute inset-x-0 -top-3 z-30 flex justify-center px-3">
+      <motion.p
+        key={phase}
+        role="status"
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`max-w-sm rounded-2xl px-4 py-2.5 text-center text-sm font-bold text-white shadow-xl ${tone}`}
+      >
+        {icon} {text}
+      </motion.p>
+    </div>
+  );
+}
+
 function TopCard<T>({
   item,
   renderCard,
@@ -223,6 +255,7 @@ function TopCard<T>({
   stamps,
   demo,
   onDemoStop,
+  onPhase,
 }: {
   item: T;
   renderCard: (item: T) => ReactNode;
@@ -233,6 +266,7 @@ function TopCard<T>({
   stamps: Props<T>["stamps"];
   demo: boolean;
   onDemoStop: () => void;
+  onPhase: (phase: DemoPhase) => void;
 }) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -261,27 +295,43 @@ function TopCard<T>({
     };
   });
 
-  // First visit demo: a hand drags the card right (GOING) and left (SKIP)
-  // twice, then the demo ends on its own.
+  const [pressing, setPressing] = useState(false);
+
+  // First visit demo: a hand drags the card right (GOING), then left (SKIP),
+  // then taps it to flip, with a caption for each move. Ends on its own.
   useEffect(() => {
     if (!demo) return;
     let cancelled = false;
-    const ease = { duration: 0.55, ease: "easeInOut" as const };
+    const ease = { duration: 0.6, ease: "easeInOut" as const };
     const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
     (async () => {
-      await pause(600);
-      for (let round = 0; round < 2 && !cancelled; round++) {
-        await animate(x, 110, ease);
+      await pause(500);
+      const steps: [DemoPhase, number][] = [
+        ["right", 115],
+        ["left", -115],
+      ];
+      for (const [phase, to] of steps) {
         if (cancelled) break;
-        await pause(250);
+        onPhase(phase);
+        setPressing(true);
+        await animate(x, to, ease);
+        if (cancelled) break;
+        await pause(1500);
+        if (cancelled) break;
         await animate(x, 0, ease);
-        if (cancelled) break;
-        await animate(x, -110, ease);
-        if (cancelled) break;
-        await pause(250);
-        await animate(x, 0, ease);
-        if (cancelled) break;
+        setPressing(false);
+        await pause(300);
+      }
+      if (!cancelled && renderBack) {
+        onPhase("tap");
         await pause(400);
+        setPressing(true);
+        await pause(250);
+        setPressing(false);
+        setFlipped(true);
+        await pause(1800);
+        if (!cancelled) setFlipped(false);
+        await pause(700);
       }
       if (!cancelled) onDemoStop();
       else if (!flying.current && !dragging.current) animate(x, 0, { duration: 0.2 });
@@ -289,8 +339,9 @@ function TopCard<T>({
     return () => {
       cancelled = true;
       x.stop();
+      setPressing(false);
     };
-    // onDemoStop is stable for the life of this card.
+    // onPhase, onDemoStop and renderBack are stable for the life of this card.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demo, x]);
 
@@ -342,11 +393,18 @@ function TopCard<T>({
       {demo && (
         <motion.span
           aria-hidden
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="pointer-events-none absolute bottom-[22%] left-1/2 z-20 -translate-x-1/2 text-7xl drop-shadow-[0_6px_12px_rgba(0,0,0,0.45)]"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0, scale: pressing ? 0.88 : 1 }}
+          transition={{ duration: 0.2 }}
+          className="pointer-events-none absolute bottom-[18%] left-1/2 z-20 -ml-10 flex w-20 flex-col items-center"
         >
-          👆
+          {/* Touch ripple under the fingertip while pressing */}
+          <span
+            className={`absolute -top-3 left-1/2 h-10 w-10 -translate-x-1/2 rounded-full bg-white/70 transition-all duration-300 ${
+              pressing ? "scale-100 opacity-100" : "scale-50 opacity-0"
+            }`}
+          />
+          <HandIllustration className="relative h-24 w-20 drop-shadow-[0_8px_14px_rgba(0,0,0,0.45)]" />
         </motion.span>
       )}
       <motion.span style={{ opacity: rightOpacity }} className={`${stampBase} left-6 -rotate-12 ${stamps.right.className}`}>

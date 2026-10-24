@@ -132,6 +132,11 @@ export default function DiscoverDeck({ events }: { events: EventSummary[] }) {
           renderCard={(e) => <EventSwipeCard event={e} />}
           renderBack={(e) => <EventBackCard event={e} />}
           hintKey="soonerswipe:hint:discover"
+          demoCaptions={{
+            right: "Swipe right = Going. You'll register and we'll find you a ride.",
+            left: "Swipe left = Skip. It won't show up again.",
+            tap: "Tap = flip the card for event details.",
+          }}
           onSwipe={handleSwipe}
           paused={liked !== null}
           stamps={{

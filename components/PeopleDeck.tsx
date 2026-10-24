@@ -109,6 +109,11 @@ export default function PeopleDeck({
         renderCard={(p) => <PersonCard person={p} />}
         renderBack={(p) => <PersonBackCard person={p} />}
         hintKey="soonerswipe:hint:people"
+        demoCaptions={{
+          right: "Swipe right = Connect. If they swipe right too, you ride together.",
+          left: "Swipe left = Skip. They won't be told.",
+          tap: "Tap = flip the card for their full profile.",
+        }}
         onSwipe={swipe}
         allowStar
         showProgress
