@@ -109,3 +109,6 @@ create policy "read trip riders" on trip_riders for select to authenticated usin
 create policy "read friends" on friends for select to authenticated using (true);
 create policy "add friend" on friends for insert to authenticated
   with check (auth.uid() in (user_a, user_b));
+
+-- Auth guard: also run supabase/auth_trigger.sql to reject non @ou.edu
+-- emails in auth.users itself.

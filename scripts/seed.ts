@@ -3,6 +3,8 @@
 // Usage: npm run seed
 import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import { PICKUP_POINTS as PICKUPS, type PickupKey } from "../lib/places";
+import { chicagoToUtc, chicagoToday } from "../lib/time";
 
 config({ path: ".env.local", quiet: true });
 
@@ -36,15 +38,6 @@ const USERS: DemoUser[] = [
   { email: "rider4@ou.edu", name: "Ethan Brooks", major: "Biology", mpg: null, interests: ["sports", "culture"] },
 ];
 
-// Real campus pickup spots.
-const PICKUPS = {
-  union: { name: "Oklahoma Memorial Union", lat: 35.2097, lng: -97.4446 },
-  bizzell: { name: "Bizzell Memorial Library", lat: 35.2081, lng: -97.4458 },
-  gaylord: { name: "Gaylord Hall", lat: 35.2056, lng: -97.4478 },
-  headington: { name: "Headington Hall", lat: 35.2028, lng: -97.4438 },
-} as const;
-type PickupKey = keyof typeof PICKUPS;
-
 // Placeholder events with real venue coordinates.
 // Replace with real upcoming OU events before the demo.
 type DemoEvent = {
@@ -56,7 +49,7 @@ type DemoEvent = {
   lat: number;
   lng: number;
   daysFromNow: number;
-  hour: number; // local hour (America/Chicago, approx. UTC-5)
+  hour: number; // wall clock hour in America/Chicago
   tags: string[];
 };
 
@@ -109,12 +102,11 @@ const ATTENDANCE: DemoAttendance[] = [
 // rider1 and rider2 are friends, so rider1 sees "1 friend is going" on the career fair.
 const FRIENDSHIPS: [string, string][] = [["rider1@ou.edu", "rider2@ou.edu"]];
 
-// Central Time is UTC-5 during daylight time, UTC-6 otherwise; one hour off is fine for demo data.
+// Wall clock time in America/Chicago, daysFromNow days after today in Chicago.
+// Uses the correct UTC offset on each date, so events after Nov 1 are in CST.
 function eventTime(daysFromNow: number, localHour: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + daysFromNow);
-  d.setUTCHours(localHour + 5, 0, 0, 0);
-  return d.toISOString();
+  const today = chicagoToday();
+  return chicagoToUtc(today.year, today.month, today.day + daysFromNow, localHour).toISOString();
 }
 
 function check<T>(label: string, result: { data: T | null; error: { message: string } | null }): T {
