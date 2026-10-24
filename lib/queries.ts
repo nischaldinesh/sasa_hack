@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildPersonDeck } from "./deck";
 import { buildEventSummaries } from "./events";
-import { roundTripMiles } from "./geo";
+import { haversineMiles, roundTripMiles } from "./geo";
 import type {
   AttendanceRow,
   EventRow,
@@ -240,25 +240,36 @@ export type TripMember = {
   id: string;
   name: string;
   major: string | null;
+  year: string | null;
   pickupPoint: string | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
 };
+
+type TripEvent = EventEmbed & Pick<EventRow, "city">;
 
 export type TripDetail = {
   id: string;
-  event: EventEmbed;
+  costMode: "free" | "split";
+  event: TripEvent;
   myRole: Role;
-  driver: TripMember & { mpg: number | null; seats: number | null; departTime: string | null };
+  driver: TripMember & { mpg: number | null; carModel: string | null; seats: number | null; departTime: string | null };
   riders: TripMember[];
+  oneWayMiles: number | null;
   roundTripMiles: number | null;
 };
 
 // One trip card. Returns null when the trip doesn't exist or I'm not in it.
 export async function getTripDetail(supabase: SupabaseClient, userId: string, tripId: string): Promise<TripDetail | null> {
   const [tripRes, ridersRes] = await Promise.all([
-    supabase.from("trips").select("id, event_id, driver_id, events(id, title, start_time, location, lat, lng)").eq("id", tripId).maybeSingle(),
-    supabase.from("trip_riders").select("rider_id").eq("trip_id", tripId),
+    supabase
+      .from("trips")
+      .select("id, event_id, driver_id, cost_mode, events(id, title, start_time, location, city, lat, lng)")
+      .eq("id", tripId)
+      .maybeSingle(),
+    supabase.from("trip_riders").select("rider_id, matched_at").eq("trip_id", tripId).order("matched_at"),
   ]);
-  const trip = must(tripRes) as (TripRow & { events: EventEmbed | null }) | null;
+  const trip = must(tripRes) as (TripRow & { cost_mode: "free" | "split"; events: TripEvent | null }) | null;
   const riderIds = (must(ridersRes) as { rider_id: string }[]).map((r) => r.rider_id);
   if (!trip?.events) return null;
   if (trip.driver_id !== userId && !riderIds.includes(userId)) return null;
@@ -277,26 +288,40 @@ export async function getTripDetail(supabase: SupabaseClient, userId: string, tr
       (a) => [a.user_id, a],
     ),
   );
-  const member = (id: string): TripMember => ({
-    id,
-    name: profiles.get(id)?.name ?? "Sooner",
-    major: profiles.get(id)?.major ?? null,
-    pickupPoint: plans.get(id)?.pickup_point ?? null,
-  });
+  const member = (id: string): TripMember => {
+    const p = profiles.get(id);
+    const plan = plans.get(id);
+    return {
+      id,
+      name: p?.name ?? "Sooner",
+      major: p?.major ?? null,
+      year: p?.year ?? null,
+      pickupPoint: plan?.pickup_point ?? null,
+      pickupLat: plan?.pickup_lat ?? null,
+      pickupLng: plan?.pickup_lng ?? null,
+    };
+  };
 
   const driverPlan = plans.get(trip.driver_id);
   const event = trip.events;
+  const oneWay =
+    driverPlan?.pickup_lat != null && driverPlan.pickup_lng != null
+      ? haversineMiles(driverPlan.pickup_lat, driverPlan.pickup_lng, event.lat, event.lng)
+      : null;
   return {
     id: trip.id,
+    costMode: trip.cost_mode,
     event,
     myRole: trip.driver_id === userId ? "driver" : "rider",
     driver: {
       ...member(trip.driver_id),
       mpg: profiles.get(trip.driver_id)?.mpg ?? null,
+      carModel: profiles.get(trip.driver_id)?.car_model ?? null,
       seats: driverPlan?.seats ?? null,
       departTime: driverPlan?.depart_time ?? null,
     },
     riders: riderIds.map(member),
+    oneWayMiles: oneWay,
     roundTripMiles:
       driverPlan?.pickup_lat != null && driverPlan.pickup_lng != null
         ? roundTripMiles(driverPlan.pickup_lat, driverPlan.pickup_lng, event.lat, event.lng)

@@ -1,59 +1,128 @@
+import { ClockIcon, PinIcon, StarIcon, CarIcon } from "@/components/Icons";
 import { formatMiles } from "@/lib/deck";
-import { formatEventTime } from "@/lib/time";
+import { avatarColor, initials } from "@/lib/names";
+import { formatClock, formatEventTime } from "@/lib/time";
 import type { PersonCardData } from "@/lib/types";
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+function statusPill(person: PersonCardData) {
+  return person.role === "driver"
+    ? { text: `Has ${person.seatsLeft} ${person.seatsLeft === 1 ? "seat" : "seats"}`, className: "bg-green-50 text-green-700", dot: "bg-green-600" }
+    : { text: "Needs a ride", className: "bg-crimson-soft text-crimson", dot: "bg-crimson" };
 }
 
-// Full height card for the person deck on the event page.
-export default function PersonCard({ person }: { person: PersonCardData }) {
-  const isDriver = person.role === "driver";
+function OrgBadges({ orgs }: { orgs: string[] }) {
   return (
-    <article className="flex h-full select-none flex-col overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+    <>
+      {orgs.map((org, i) =>
+        i === 0 ? (
+          <span key={org} className="flex items-center gap-1.5 rounded-xl bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700">
+            <PinIcon /> {org}
+          </span>
+        ) : (
+          <span key={org} className="flex items-center gap-1.5 rounded-xl bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-700">
+            <StarIcon fill="currentColor" /> {org} member
+          </span>
+        ),
+      )}
+    </>
+  );
+}
+
+// People deck card (mockup 6).
+export default function PersonCard({ person }: { person: PersonCardData }) {
+  const pill = statusPill(person);
+  return (
+    <article className="flex h-full select-none flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-zinc-300/50">
       <div
-        className={`flex flex-1 flex-col items-center justify-center gap-3 p-5 text-white ${
-          isDriver ? "bg-gradient-to-br from-red-900 to-red-600" : "bg-gradient-to-br from-zinc-800 to-zinc-500"
+        className={`relative flex min-h-[38%] flex-col items-center justify-center bg-gradient-to-br ${
+          person.role === "driver" ? "from-rose-50 to-amber-50" : "from-blue-100 to-violet-100"
         }`}
       >
-        <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white/20 text-3xl font-bold">
+        {person.starredMe && (
+          <span className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full bg-amber-400 px-3 py-1 text-sm font-bold text-white shadow">
+            <StarIcon fill="currentColor" /> Starred you
+          </span>
+        )}
+        <span className={`absolute right-4 top-4 flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold ${pill.className}`}>
+          <span className={`h-2.5 w-2.5 rounded-full ${pill.dot}`} /> {pill.text}
+        </span>
+        <span
+          className={`flex h-28 w-28 items-center justify-center rounded-full bg-white text-4xl font-black shadow-lg ${avatarColor(person.name).split(" ")[1]}`}
+        >
           {initials(person.name)}
-        </div>
-        <h3 className="text-center text-3xl font-bold">{person.name}</h3>
-        {person.major && <p className="text-white/80">{person.major}</p>}
-        <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
-          {isDriver ? "🚗 Driver" : "🙋 Rider"}
+        </span>
+        <span className="absolute bottom-4 left-4 flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm font-bold text-green-600 shadow-sm">
+          <PinIcon /> {formatMiles(person.distanceMiles)} from your pickup
         </span>
       </div>
-      <div className="flex flex-col gap-2 p-5 text-sm">
-        <p className="text-base font-semibold text-red-800 dark:text-red-400">
-          {formatMiles(person.distanceMiles)} from your pickup
-        </p>
-        {person.pickupPoint && <p>📍 Pickup: {person.pickupPoint}</p>}
-        {isDriver && (
-          <>
-            {person.departTime && <p>🕒 Leaves {formatEventTime(person.departTime)}</p>}
-            <p>
-              💺 {person.seatsLeft} {person.seatsLeft === 1 ? "seat" : "seats"} left
-              {person.mpg ? ` · ${person.mpg} mpg` : ""}
-            </p>
-          </>
-        )}
-        {person.interests.length > 0 && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {person.interests.map((interest) => (
-              <span key={interest} className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs dark:bg-zinc-800">
-                {interest}
-              </span>
-            ))}
+
+      <div className="flex flex-1 flex-col gap-3 overflow-hidden p-5">
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-3">
+          <div className="min-w-0">
+            <h3 className="truncate text-2xl font-black tracking-tight">{person.name}</h3>
+            <p className="text-zinc-500">{[person.major, person.year].filter(Boolean).join(" · ")}</p>
           </div>
+          {person.pickupPoint && (
+            <div className="shrink-0 text-right">
+              <p className="text-sm text-zinc-400">Pickup</p>
+              <p className="font-bold">{person.pickupPoint}</p>
+            </div>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {person.departTime && (
+            <span className="flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-700">
+              <ClockIcon /> {formatClock(person.departTime)} depart
+            </span>
+          )}
+          {person.role === "driver" && person.mpg && (
+            <span className="flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-700">
+              <CarIcon /> {person.mpg} mpg
+            </span>
+          )}
+          <OrgBadges orgs={person.orgs} />
+        </div>
+        {person.bio && (
+          <blockquote className="line-clamp-4 rounded-xl border-l-4 border-crimson bg-zinc-50 px-4 py-3 text-zinc-500">
+            &ldquo;{person.bio}&rdquo;
+          </blockquote>
         )}
       </div>
     </article>
+  );
+}
+
+// Desktop side panel next to the people deck card.
+export function PersonDetailsPanel({ person }: { person: PersonCardData }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wider text-crimson">{person.role === "driver" ? "Driver" : "Rider"}</p>
+        <h3 className="mt-1 text-xl font-black">{person.name}</h3>
+        <p className="text-sm text-zinc-500">{[person.major, person.year].filter(Boolean).join(" · ")}</p>
+      </div>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
+        <dt className="text-zinc-400">Pickup</dt>
+        <dd className="font-semibold">{person.pickupPoint ?? "—"}</dd>
+        <dt className="text-zinc-400">Distance</dt>
+        <dd className="font-semibold">{formatMiles(person.distanceMiles)} from your pickup</dd>
+        <dt className="text-zinc-400">Leaves</dt>
+        <dd className="font-semibold">{person.departTime ? formatEventTime(person.departTime) : "—"}</dd>
+        {person.role === "driver" && (
+          <>
+            <dt className="text-zinc-400">Seats</dt>
+            <dd className="font-semibold">{person.seatsLeft} open</dd>
+            <dt className="text-zinc-400">Car</dt>
+            <dd className="font-semibold">{person.mpg ? `${person.mpg} mpg` : "—"}</dd>
+          </>
+        )}
+      </dl>
+      {person.orgs.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <OrgBadges orgs={person.orgs} />
+        </div>
+      )}
+      {person.bio && <p className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">&ldquo;{person.bio}&rdquo;</p>}
+    </div>
   );
 }

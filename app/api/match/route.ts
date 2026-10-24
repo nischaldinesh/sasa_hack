@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getPartners } from "@/lib/queries";
+import { getPartners, getTripDetail } from "@/lib/queries";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// GET ?eventId= -> { tripId, partners }. Polled every 3 s by the event page so
-// the person who swiped first also sees "It's a match" without reloading.
+// GET ?eventId= -> { tripId, partners, trip }. Polled every 3 s by the people
+// deck so the person who swiped first also sees the match without reloading.
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -17,9 +17,9 @@ export async function GET(request: NextRequest) {
   if (!UUID.test(eventId)) return NextResponse.json({ error: "Invalid eventId" }, { status: 400 });
 
   try {
-    return NextResponse.json(await getPartners(supabase, user.id, eventId), {
-      headers: { "Cache-Control": "no-store" },
-    });
+    const { tripId, partners } = await getPartners(supabase, user.id, eventId);
+    const trip = tripId ? await getTripDetail(supabase, user.id, tripId) : null;
+    return NextResponse.json({ tripId, partners, trip }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("match status failed:", err);
     return NextResponse.json({ error: "Couldn't check for matches" }, { status: 500 });

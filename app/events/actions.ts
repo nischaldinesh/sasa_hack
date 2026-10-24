@@ -83,15 +83,17 @@ async function resetMatching(userId: string, eventId: string) {
 
 const LOCKED = "You're in a trip for this event, so you can't change your role or leave.";
 
-// Join form on the event page: going as a driver or a rider.
-export async function joinEvent(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+// "How are you going?": going as a driver or a rider. Returns where to go next.
+export async function joinEvent(_prev: ActionResult, formData: FormData): Promise<ActionResult & { next?: string }> {
   const eventId = String(formData.get("eventId") ?? "");
   const role = String(formData.get("role") ?? "");
   const pickupKey = String(formData.get("pickup") ?? "");
 
-  if (role !== "driver" && role !== "rider") return { error: "Choose driver or rider." };
-  if (!isPickupKey(pickupKey)) return { error: "Choose a pickup point." };
+  if (role !== "driver" && role !== "rider") return { error: "Choose I'm driving or I need a ride." };
+  if (!isPickupKey(pickupKey)) return { error: "Choose a pickup spot from the list." };
   const pickup = PICKUP_POINTS[pickupKey];
+  const depart = parseChicagoInput(String(formData.get("depart") ?? ""));
+  if (!depart) return { error: "Enter a departure time." };
 
   const supabase = await createClient();
   const {
@@ -105,6 +107,8 @@ export async function joinEvent(_prev: ActionResult, formData: FormData): Promis
     .eq("id", eventId)
     .maybeSingle();
   if (eventError || !event) return { error: "That event no longer exists." };
+  if (depart.getTime() >= Date.parse(event.start_time)) return { error: "Departure must be before the event starts." };
+  if (depart.getTime() < Date.now()) return { error: "Departure time is in the past." };
 
   const [{ locked, riderCount }, { data: current }] = await Promise.all([
     getTripLock(supabase, user.id, eventId),
@@ -114,22 +118,14 @@ export async function joinEvent(_prev: ActionResult, formData: FormData): Promis
   if (locked && roleChanged) return { error: LOCKED };
 
   let seats: number | null = null;
-  let departTime: string | null = null;
-
+  let splitGas = true;
   if (role === "driver") {
     seats = Number(formData.get("seats"));
     const mpg = Number(formData.get("mpg"));
-    const depart = parseChicagoInput(String(formData.get("depart") ?? ""));
-
+    splitGas = formData.get("splitGas") === "on";
     if (!Number.isInteger(seats) || seats < 1 || seats > 7) return { error: "Seats must be between 1 and 7." };
     if (seats < riderCount) return { error: `You already have ${riderCount} riders, so you need at least ${riderCount} seats.` };
     if (!Number.isFinite(mpg) || mpg <= 0 || mpg > 150) return { error: "Enter your car's mpg (for example 30)." };
-    if (!depart) return { error: "Enter a departure time." };
-    if (depart.getTime() >= Date.parse(event.start_time)) {
-      return { error: "Departure must be before the event starts." };
-    }
-    if (depart.getTime() < Date.now()) return { error: "Departure time is in the past." };
-    departTime = depart.toISOString();
 
     const { error: mpgError } = await supabase.from("profiles").update({ mpg }).eq("id", user.id);
     if (mpgError) return { error: "Couldn't save your mpg. Try again." };
@@ -144,16 +140,27 @@ export async function joinEvent(_prev: ActionResult, formData: FormData): Promis
       pickup_point: pickup.name,
       pickup_lat: pickup.lat,
       pickup_lng: pickup.lng,
-      depart_time: departTime,
+      depart_time: depart.toISOString(),
       seats,
+      split_gas: splitGas,
     },
     { onConflict: "user_id,event_id" },
   );
   if (error) return { error: "Couldn't join this event. Try again." };
+
+  const admin = createAdminClient();
   if (roleChanged) await resetMatching(user.id, eventId);
+  else if (role === "driver") {
+    // Keep an existing trip's cost mode in sync with the split gas toggle.
+    await admin
+      .from("trips")
+      .update({ cost_mode: splitGas ? "split" : "free" })
+      .eq("event_id", eventId)
+      .eq("driver_id", user.id);
+  }
 
   refresh();
-  return { message: role === "driver" ? "You're driving! 🚗" : "You're going as a rider!" };
+  return { next: `/events/${eventId}/people` };
 }
 
 // Leave an event I'm going to. Blocked once I'm in a trip for it.
