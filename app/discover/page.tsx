@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import DiscoverDeck from "@/components/DiscoverDeck";
+import DemoResetButton from "@/components/DemoResetButton";
+import { isDemoEmail } from "@/lib/demoData";
 import { createClient } from "@/lib/supabase/server";
 import { getEventSummaries } from "@/lib/queries";
 
@@ -24,8 +26,16 @@ async function DiscoverData() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
-  const events = await getEventSummaries(supabase, user.id);
-  return <DiscoverDeck events={events} />;
+  const [events, { data: profile }] = await Promise.all([
+    getEventSummaries(supabase, user.id),
+    supabase.from("profiles").select("name").eq("id", user.id).maybeSingle(),
+  ]);
+  return (
+    <>
+      <DiscoverDeck events={events} />
+      {isDemoEmail(user.email) && <DemoResetButton name={profile?.name ?? user.email!} />}
+    </>
+  );
 }
 
 function DiscoverSkeleton() {
