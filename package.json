@@ -12,6 +12,8 @@
     "demo:match": "tsx scripts/demo-match.ts"
   },
   "dependencies": {
+    "@dicebear/core": "^9.4.2",
+    "@dicebear/notionists": "^9.4.2",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "framer-motion": "^14.6.0",
