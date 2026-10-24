@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SwipeDeck, { type SwipeDirection } from "@/components/SwipeDeck";
 import PersonCard, { PersonBackCard } from "@/components/PersonCard";
 import MatchScreen, { type Match } from "@/components/MatchScreen";
-import { ChevronLeftIcon } from "@/components/Icons";
+import BackButton from "@/components/BackButton";
 import type { TripDetail } from "@/lib/queries";
 import type { Partner, PersonCardData, PersonDeck as Deck } from "@/lib/types";
 
@@ -31,6 +31,16 @@ export default function PeopleDeck({
   const router = useRouter();
   const [match, setMatch] = useState<Match | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Clear the match screen and notices when this page is hidden (Next keeps
+  // it alive), so coming back later doesn't show a stale "You're Connected!".
+  useLayoutEffect(
+    () => () => {
+      setMatch(null);
+      setNotice(null);
+    },
+    [],
+  );
   const seen = useRef(new Set(initialPartners.map((p) => p.id)));
   const lookingFor = deck.myRole === "driver" ? "riders" : "drivers";
   const count = deck.people.length;
@@ -147,13 +157,7 @@ export default function PeopleDeck({
   return (
     <div className="flex flex-col gap-5">
       <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-5 py-4 md:rounded-3xl md:border-0 md:shadow-sm">
-        <Link
-          href={`/events/${eventId}`}
-          aria-label="Back to your ride plan"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-2xl text-zinc-600"
-        >
-          <ChevronLeftIcon />
-        </Link>
+        <BackButton fallback={`/events/${eventId}`} label="Back" />
         <div className="min-w-0 flex-1">
           <p className="text-sm text-zinc-400">{lookingFor === "riders" ? "Riders" : "Drivers"} going to</p>
           <h1 className="truncate text-xl font-black tracking-tight">{eventTitle}</h1>

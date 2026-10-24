@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
@@ -64,6 +64,8 @@ function DetailsModal({ event, onClose }: { event: EventSummary; onClose: () => 
 // Join In, people going and more details.
 export default function EventPhotoCard({ event }: { event: EventSummary }) {
   const [open, setOpen] = useState(false);
+  // Close the details popup when the Events page is hidden.
+  useLayoutEffect(() => () => setOpen(false), []);
   const going = event.myStatus === "going";
   const extra = Math.max(0, event.going - event.goingNames.length);
   const credit = photoCredit(event.image_url);
@@ -146,7 +148,7 @@ export default function EventPhotoCard({ event }: { event: EventSummary }) {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="flex items-center gap-1 font-semibold text-zinc-600"
+            className="flex shrink-0 items-center gap-1 whitespace-nowrap font-semibold text-zinc-600"
           >
             more details{" "}
             <span aria-hidden className="text-lg">

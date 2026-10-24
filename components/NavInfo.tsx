@@ -14,6 +14,7 @@ export function useNavInfo(): NavInfo | null {
   const [info, setInfo] = useState<NavInfo | null>(null);
 
   useEffect(() => {
+    if (pathname === "/") return; // signed out on the sign in page
     let active = true;
     const load = () =>
       fetch("/api/nav", { cache: "no-store" })

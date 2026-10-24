@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import BackButton from "@/components/BackButton";
 import { notFound, redirect } from "next/navigation";
 import HowGoingForm from "@/components/HowGoingForm";
-import { ChevronLeftIcon, CheckCircleIcon, ClockIcon, PinIcon } from "@/components/Icons";
+import { CheckCircleIcon, ClockIcon, PinIcon } from "@/components/Icons";
 import { createClient } from "@/lib/supabase/server";
 import { getEventSummaries, getTripLock } from "@/lib/queries";
 import { CAMPUS, pickupKeyByName } from "@/lib/places";
@@ -58,13 +59,7 @@ async function EventJoin({ params }: { params: PageProps<"/events/[id]">["params
     <>
       <header className="flex flex-col gap-4 border-b border-zinc-200 bg-white px-5 pb-5 pt-4 md:rounded-3xl md:border-0 md:shadow-sm">
         <div className="flex items-center gap-4">
-          <Link
-            href="/discover"
-            aria-label="Back"
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-2xl text-zinc-600"
-          >
-            <ChevronLeftIcon />
-          </Link>
+          <BackButton fallback="/discover" />
           <div className="min-w-0">
             <p className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
               {event.category ? `${event.category} · ` : ""}

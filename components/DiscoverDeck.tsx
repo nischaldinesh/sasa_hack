@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useLayoutEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SwipeDeck, { type SwipeDirection } from "@/components/SwipeDeck";
@@ -18,6 +18,17 @@ export default function DiscoverDeck({ events }: { events: EventSummary[] }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [categories, setCategories] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
+
+  // Next keeps this page alive (hidden) after navigating away. Close the
+  // registration sheet and clear errors when hidden so returning to Discover
+  // shows the deck, not a stuck sheet.
+  useLayoutEffect(
+    () => () => {
+      setLiked(null);
+      setError(null);
+    },
+    [],
+  );
   const [, startTransition] = useTransition();
 
   const allCategories = useMemo(

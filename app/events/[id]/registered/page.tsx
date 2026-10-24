@@ -12,7 +12,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function RegisteredPage({ params }: PageProps<"/events/[id]/registered">) {
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-6 pb-8 pt-6">
+    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-6 pb-24 pt-6 md:pb-8">
       <Suspense fallback={<p className="p-6 text-center text-zinc-500">Loading…</p>}>
         <Registered params={params} />
       </Suspense>

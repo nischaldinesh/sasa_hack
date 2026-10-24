@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PickupPicker from "@/components/PickupPicker";
@@ -90,8 +90,15 @@ export default function HowGoingForm({ eventId, joined, locked, verified, driver
   const [leaveResult, setLeaveResult] = useState<ActionResult>({});
   const [leaving, startLeaving] = useTransition();
 
+  // Go to the people deck once per successful join. Effects re-run when Next
+  // shows this hidden page again, so remember which result was handled;
+  // otherwise pressing back from the deck would bounce straight back to it.
+  const handled = useRef<typeof state | null>(null);
   useEffect(() => {
-    if (state.next) router.push(state.next);
+    if (state.next && handled.current !== state) {
+      handled.current = state;
+      router.push(state.next);
+    }
   }, [state, router]);
 
   function leave() {

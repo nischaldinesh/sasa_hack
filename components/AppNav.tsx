@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "@/components/Logo";
 import { CardsIcon, FriendsIcon, ListIcon, UserIcon } from "@/components/Icons";
 import { AvatarLink, BellLink, useNavInfo } from "@/components/NavInfo";
+import { recordNavigation } from "@/lib/navHistory";
 
 const TABS = [
   { href: "/discover", label: "Discover", Icon: CardsIcon },
@@ -14,9 +15,12 @@ const TABS = [
   { href: "/profile", label: "Profile", Icon: UserIcon },
 ];
 
-// Main screens show the bottom tabs on mobile; flow screens (event, people
-// deck, trip card) show a back button instead.
+// Only these exact paths show the bottom tabs on mobile. Pages under them
+// (an event's How are you going, people deck, registered; trip cards) have
+// their own back button and bottom actions, which the tabs would cover.
 const MAIN = ["/discover", "/events", "/friends", "/profile", "/matches"];
+// "You're registered!" keeps the tabs so people can hop back to Discover.
+const WITH_TABS = /^\/events\/[^/]+\/registered$/;
 
 const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
@@ -33,6 +37,7 @@ export default function AppNav() {
 function Nav() {
   const pathname = usePathname();
   const info = useNavInfo();
+  useEffect(() => recordNavigation(), [pathname]);
   if (pathname === "/") return null;
 
   return (
@@ -64,7 +69,7 @@ function Nav() {
       </header>
 
       {/* Mobile: bottom tabs on main screens */}
-      {MAIN.some((p) => isActive(pathname, p)) && (
+      {(MAIN.includes(pathname) || WITH_TABS.test(pathname)) && (
         <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
           <ul className="grid grid-cols-4">
             {TABS.map(({ href, label, Icon }) => {

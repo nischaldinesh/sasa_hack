@@ -1,11 +1,11 @@
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import BackButton from "@/components/BackButton";
 import { notFound, redirect } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import CrewFriends from "@/components/CrewFriends";
 import ReviewCard from "@/components/ReviewCard";
-import { ChevronLeftIcon } from "@/components/Icons";
 import { createClient } from "@/lib/supabase/server";
 import { getFriendStatuses, getTripDetail, type TripMember } from "@/lib/queries";
 import { costBreakdown, formatUsd } from "@/lib/cost";
@@ -103,13 +103,7 @@ async function TripCard({ params }: { params: PageProps<"/trips/[id]">["params"]
   return (
     <div className="flex flex-col gap-4">
       <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-5 py-4 md:rounded-3xl md:border-0 md:shadow-sm">
-        <Link
-          href="/profile#trips"
-          aria-label="Back to my trips"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-2xl text-zinc-600"
-        >
-          <ChevronLeftIcon />
-        </Link>
+        <BackButton fallback="/profile#trips" />
         <div className="min-w-0 flex-1">
           <p className="text-sm text-zinc-400">Your trip · {formatLongDate(event.start_time)}</p>
           <h1 className="truncate text-xl font-black tracking-tight">
