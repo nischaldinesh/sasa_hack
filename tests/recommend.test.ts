@@ -19,6 +19,7 @@ function ev(id: string, over: Partial<EventSummary>): EventSummary {
     tags: [],
     requires_registration: false,
     registration_url: null,
+    driver_perk: null,
     going: 0,
     interested: 0,
     newThisWeek: 0,

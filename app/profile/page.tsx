@@ -29,7 +29,11 @@ async function Profile() {
   if (!user) redirect("/");
 
   const [{ data: profile, error }, trips] = await Promise.all([
-    supabase.from("profiles").select("name, email, major, year, bio, orgs, car_model, mpg").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("name, email, major, year, bio, orgs, car_model, mpg, license_plate, license_verified_at")
+      .eq("id", user.id)
+      .maybeSingle(),
     getMyTrips(supabase, user.id),
   ]);
   if (error) throw new Error(error.message);
@@ -66,41 +70,65 @@ async function Profile() {
           />
         </section>
 
-        <section id="trips" className="scroll-mt-24 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-100">
-          <h2 className="mb-3 text-lg font-black">My trips</h2>
-          {trips.length === 0 ? (
-            <div className="flex flex-col items-start gap-3 text-zinc-500">
-              <p>No trips yet. Join an event and match with a driver or rider to start one.</p>
-              <Link href="/discover" className="rounded-2xl bg-crimson px-5 py-2.5 font-bold text-white">
-                Discover events
-              </Link>
-            </div>
-          ) : (
-            <ul className="flex flex-col divide-y divide-zinc-100">
-              {trips.map((t) => (
-                <li key={t.id}>
-                  <Link href={`/trips/${t.id}`} className="flex items-center gap-3 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-bold">{t.event.title}</p>
-                      <p className="truncate text-sm text-zinc-500">
-                        {formatEventTime(t.event.start_time)} · {t.myRole === "driver" ? "You're driving" : `With ${t.driverName}`} ·{" "}
-                        {t.riderCount}
-                        {t.seats ? `/${t.seats}` : ""} riders
-                      </p>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-xl px-3 py-1 text-sm font-semibold ${
-                        t.myRole === "driver" ? "bg-crimson-soft text-crimson" : "bg-zinc-100 text-zinc-600"
-                      }`}
-                    >
-                      {t.myRole === "driver" ? "Driver" : "Rider"}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <div className="flex flex-col gap-5">
+          <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-100">
+            <h2 className="mb-2 text-lg font-black">Driver verification</h2>
+            {profile?.license_verified_at ? (
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-semibold text-green-600">✓ Verified driver</p>
+                <span className="rounded-xl bg-zinc-900 px-3 py-1 font-mono font-bold tracking-widest text-white">
+                  {profile.license_plate}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-zinc-500">Add your plate and license to offer rides.</p>
+                <Link
+                  href="/profile/verify"
+                  className="shrink-0 rounded-xl bg-crimson px-4 py-2.5 font-bold text-white"
+                >
+                  Verify
+                </Link>
+              </div>
+            )}
+          </section>
+
+          <section id="trips" className="scroll-mt-24 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-100">
+            <h2 className="mb-3 text-lg font-black">My trips</h2>
+            {trips.length === 0 ? (
+              <div className="flex flex-col items-start gap-3 text-zinc-500">
+                <p>No trips yet. Join an event and match with a driver or rider to start one.</p>
+                <Link href="/discover" className="rounded-2xl bg-crimson px-5 py-2.5 font-bold text-white">
+                  Discover events
+                </Link>
+              </div>
+            ) : (
+              <ul className="flex flex-col divide-y divide-zinc-100">
+                {trips.map((t) => (
+                  <li key={t.id}>
+                    <Link href={`/trips/${t.id}`} className="flex items-center gap-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-bold">{t.event.title}</p>
+                        <p className="truncate text-sm text-zinc-500">
+                          {formatEventTime(t.event.start_time)} ·{" "}
+                          {t.myRole === "driver" ? "You're driving" : `With ${t.driverName}`} · {t.riderCount}
+                          {t.seats ? `/${t.seats}` : ""} riders
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-xl px-3 py-1 text-sm font-semibold ${
+                          t.myRole === "driver" ? "bg-crimson-soft text-crimson" : "bg-zinc-100 text-zinc-600"
+                        }`}
+                      >
+                        {t.myRole === "driver" ? "Driver" : "Rider"}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       </div>
     </>
   );

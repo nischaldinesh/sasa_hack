@@ -70,6 +70,7 @@ function Featured({ event }: { event: EventSummary }) {
       <div className="flex flex-wrap items-center gap-2 p-4">
         {event.openSeats > 0 && <span className={`${chip} bg-crimson-soft text-crimson`}>{event.openSeats} seats open</span>}
         {event.newThisWeek > 0 && <span className={`${chip} bg-green-50 text-green-600`}>+{event.newThisWeek} this week</span>}
+        {event.driver_perk && <span className={`${chip} bg-amber-50 text-amber-800`}>🎁 {event.driver_perk}</span>}
         {event.friendNames.length > 0 && (
           <span className="ml-auto flex items-center gap-2 text-zinc-500">
             <span className="flex -space-x-2">
@@ -108,6 +109,7 @@ function Row({ event }: { event: EventSummary }) {
           <span className={`${chip} bg-zinc-100 text-zinc-700`}>{event.going} going</span>
           {event.openSeats > 0 && <span className={`${chip} bg-zinc-100 text-zinc-700`}>{event.openSeats} seats open</span>}
           {tag && <span className={`${chip} ${tag === "Free food" ? "bg-orange-50 text-orange-700" : "bg-zinc-100 text-zinc-700"}`}>{tag}</span>}
+          {event.driver_perk && <span className={`${chip} bg-amber-50 text-amber-800`}>🎁 Driver perk</span>}
         </div>
       </div>
     </article>

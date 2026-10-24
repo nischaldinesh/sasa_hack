@@ -23,7 +23,7 @@ function going(user_id: string, role: "driver" | "rider", at: { lat: number; lng
 }
 
 const profiles = new Map<string, ProfileRow>(
-  ["me", "d1", "d2", "d3", "r1", "r2", "r3"].map((id) => [id, { id, name: id.toUpperCase(), major: null, year: null, bio: null, orgs: [], car_model: null, mpg: 30, interests: [] }]),
+  ["me", "d1", "d2", "d3", "r1", "r2", "r3"].map((id) => [id, { id, name: id.toUpperCase(), major: null, year: null, bio: null, orgs: [], car_model: null, mpg: 30, interests: [], license_verified_at: id.startsWith("d") ? "2026-10-01T00:00:00Z" : null }]),
 );
 
 const base = { swipedIds: new Set<string>(), trips: [], tripRiders: [], profiles };
@@ -45,6 +45,20 @@ describe("buildPersonDeck", () => {
     expect(deck.people.map((p) => p.userId)).toEqual(["d2", "d1"]);
     expect(deck.people[0].distanceMiles).toBeGreaterThan(0);
     expect(deck.people[0].seatsLeft).toBe(3);
+    expect(deck.people[0].verified).toBe(true);
+  });
+
+  it("adds driver ratings", () => {
+    const deck = buildPersonDeck({
+      ...base,
+      meId: "me",
+      ratings: new Map([["d1", { rating: 4.8, reviews: 5 }]]),
+      attendance: [going("me", "rider", UNION), going("d1", "driver", UNION), going("d2", "driver", BIZZELL)],
+    });
+    expect(deck.people.map((p) => [p.userId, p.rating, p.reviews])).toEqual([
+      ["d1", 4.8, 5],
+      ["d2", null, 0],
+    ]);
   });
 
   it("shows a driver only riders, skipping riders already in a car", () => {

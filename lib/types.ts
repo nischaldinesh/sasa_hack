@@ -15,6 +15,7 @@ export type EventRow = {
   tags: string[];
   requires_registration: boolean;
   registration_url: string | null;
+  driver_perk: string | null;
 };
 
 export type AttendanceRow = {
@@ -68,6 +69,7 @@ export type ProfileRow = {
   car_model: string | null;
   mpg: number | null;
   interests: string[];
+  license_verified_at: string | null;
 };
 
 export type PersonCardData = {
@@ -84,6 +86,9 @@ export type PersonCardData = {
   departTime: string | null;
   seatsLeft: number | null; // drivers only
   mpg: number | null; // drivers only
+  verified: boolean; // drivers only: license check approved
+  rating: number | null; // drivers only: average review
+  reviews: number; // drivers only
   interests: string[];
 };
 
@@ -99,3 +104,5 @@ export type PersonDeck = {
 };
 
 export type Partner = { id: string; name: string };
+
+export type FriendStatus = "friends" | "sent" | "received" | "none";

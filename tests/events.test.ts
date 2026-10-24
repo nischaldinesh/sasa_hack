@@ -16,6 +16,7 @@ const event = (id: string, start: string, extra: Partial<EventRow> = {}): EventR
   city: null,
   requires_registration: false,
   registration_url: null,
+  driver_perk: null,
   ...extra,
 });
 

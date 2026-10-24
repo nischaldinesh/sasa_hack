@@ -2,9 +2,10 @@
 
 import { useId, useState } from "react";
 import { PinIcon } from "@/components/Icons";
-import { PICKUP_POINTS, searchPickups, type PickupKey } from "@/lib/places";
+import { AREA_LABELS, PICKUP_POINTS, searchPickups, type PickupKey } from "@/lib/places";
 
-// Looks like a text input; typing filters the preset campus pickup spots.
+// Looks like a text input; typing filters the preset pickup spots (campus,
+// student housing, around Norman), grouped by area.
 // Submits the chosen spot's key as `name`.
 export default function PickupPicker({ name, defaultValue }: { name: string; defaultValue: PickupKey | null }) {
   const listId = useId();
@@ -31,7 +32,7 @@ export default function PickupPicker({ name, defaultValue }: { name: string; def
           aria-controls={listId}
           aria-autocomplete="list"
           aria-label="Pickup area"
-          placeholder="e.g. Adams Hall, Couch Tower"
+          placeholder="e.g. Adams Hall, Campus Corner, Crimson Park"
           value={query}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 120)}
@@ -60,26 +61,34 @@ export default function PickupPicker({ name, defaultValue }: { name: string; def
         <ul
           id={listId}
           role="listbox"
-          className="absolute inset-x-0 top-full z-20 mt-2 max-h-64 overflow-auto rounded-2xl bg-white p-1 shadow-xl ring-1 ring-zinc-200"
+          className="absolute inset-x-0 top-full z-20 mt-2 max-h-80 overflow-auto rounded-2xl bg-white p-1 shadow-xl ring-1 ring-zinc-200"
         >
           {matches.length === 0 ? (
-            <li className="px-4 py-3 text-sm text-zinc-500">No campus spot matches “{query}”.</li>
+            <li className="px-4 py-3 text-sm text-zinc-500">No pickup spot matches “{query}”.</li>
           ) : (
-            matches.map((key, i) => (
-              <li
-                key={key}
-                role="option"
-                aria-selected={key === selected}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  choose(key);
-                }}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 ${i === active ? "bg-zinc-100" : ""}`}
-              >
-                <PinIcon className="text-zinc-400" />
-                {PICKUP_POINTS[key].name}
-              </li>
-            ))
+            matches.map((key, i) => {
+              const area = PICKUP_POINTS[key].area;
+              const header = i === 0 || PICKUP_POINTS[matches[i - 1]].area !== area;
+              return (
+                <li key={key} role="presentation">
+                  {header && (
+                    <p className="px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wider text-zinc-400">{AREA_LABELS[area]}</p>
+                  )}
+                  <div
+                    role="option"
+                    aria-selected={key === selected}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      choose(key);
+                    }}
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 ${i === active ? "bg-zinc-100" : ""}`}
+                  >
+                    <PinIcon className="text-zinc-400" />
+                    {PICKUP_POINTS[key].name}
+                  </div>
+                </li>
+              );
+            })
           )}
         </ul>
       )}

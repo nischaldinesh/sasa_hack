@@ -99,17 +99,20 @@ type SeedEvent = {
   departBeforeMin: number; // drivers and riders leave this long before the start
   tags: string[];
   registrationUrl: string | null;
+  driverPerk?: string;
 };
 
 const EVENTS: SeedEvent[] = [
-  { key: "career", title: "OU Career Fair — OKC", organization: "OU Career Services & SASE", category: "Career", location: "Cox Convention Center", city: "Oklahoma City", lat: 35.466, lng: -97.5135, daysFromNow: 8, start: [9, 0], hours: 6, departBeforeMin: 45, tags: ["Bring your resume"], registrationUrl: "https://www.ou.edu/career" },
+  { key: "career", title: "OU Career Fair — OKC", organization: "OU Career Services & SASE", category: "Career", location: "Cox Convention Center", city: "Oklahoma City", lat: 35.466, lng: -97.5135, daysFromNow: 8, start: [9, 0], hours: 6, departBeforeMin: 45, tags: ["Bring your resume"], registrationUrl: "https://www.ou.edu/career", driverPerk: "Free parking pass in the Cox Center garage" },
   { key: "sasegm", title: "SASE General Meeting", organization: "SASE at OU", category: "Meeting", location: "Sarkeys Energy Center", city: "Norman", lat: 35.2099, lng: -97.4407, daysFromNow: 4, start: [18, 30], hours: 1.5, departBeforeMin: 15, tags: ["Free food"], registrationUrl: null },
-  { key: "diwali", title: "Diwali Night 2026", organization: "Indian Student Association", category: "Culture", location: "Traditions Square", city: "Norman", lat: 35.2063, lng: -97.442, daysFromNow: 12, start: [18, 0], hours: 4, departBeforeMin: 20, tags: ["Free food", "Dance performances"], registrationUrl: "https://www.ou.edu/studentlife" },
-  { key: "watch", title: "OU Game Watch Party", organization: "Sooner Union Programming", category: "Sports", location: "Lloyd Noble Center", city: "Norman", lat: 35.1868, lng: -97.4433, daysFromNow: 9, start: [18, 0], hours: 4, departBeforeMin: 30, tags: ["Free food"], registrationUrl: null },
+  { key: "diwali", title: "Diwali Night 2026", organization: "Indian Student Association", category: "Culture", location: "Traditions Square", city: "Norman", lat: 35.2063, lng: -97.442, daysFromNow: 12, start: [18, 0], hours: 4, departBeforeMin: 20, tags: ["Free food", "Dance performances"], registrationUrl: "https://www.ou.edu/studentlife", driverPerk: "Reserved front-row seating" },
+  { key: "watch", title: "OU Game Watch Party", organization: "Sooner Union Programming", category: "Sports", location: "Lloyd Noble Center", city: "Norman", lat: 35.1868, lng: -97.4433, daysFromNow: 9, start: [18, 0], hours: 4, departBeforeMin: 30, tags: ["Free food"], registrationUrl: null, driverPerk: "Free pizza for drivers" },
   { key: "social", title: "SASE Fall Social", organization: "SASE at OU", category: "Social", location: "Devon Energy Hall", city: "Norman", lat: 35.2104, lng: -97.442, daysFromNow: 3, start: [19, 0], hours: 2, departBeforeMin: 15, tags: ["Free food", "Networking"], registrationUrl: null },
-  { key: "tulsa", title: "Tulsa Tech Summit", organization: "Tulsa Regional Chamber", category: "Conference", location: "Cox Business Convention Center", city: "Tulsa", lat: 36.1497, lng: -95.9931, daysFromNow: 13, start: [9, 0], hours: 8, departBeforeMin: 150, tags: ["Student discount"], registrationUrl: "https://www.tulsachamber.com" },
+  { key: "tulsa", title: "Tulsa Tech Summit", organization: "Tulsa Regional Chamber", category: "Conference", location: "Cox Business Convention Center", city: "Tulsa", lat: 36.1497, lng: -95.9931, daysFromNow: 13, start: [9, 0], hours: 8, departBeforeMin: 150, tags: ["Student discount"], registrationUrl: "https://www.tulsachamber.com", driverPerk: "Free lunch voucher" },
   { key: "festival", title: "Norman International Cultural Festival", organization: "OU International Student Services", category: "Culture", location: "Andrews Park", city: "Norman", lat: 35.2232, lng: -97.4447, daysFromNow: 10, start: [12, 0], hours: 5, departBeforeMin: 20, tags: ["Family friendly", "Food trucks"], registrationUrl: null },
   { key: "concert", title: "Fall Concert on the Oval", organization: "OU School of Music", category: "Music", location: "Catlett Music Center", city: "Norman", lat: 35.2083, lng: -97.4469, daysFromNow: 17, start: [20, 0], hours: 2, departBeforeMin: 15, tags: ["Outdoor"], registrationUrl: null },
+  // Past event: completed trips with reviews, so drivers have ratings.
+  { key: "kickoff", title: "SASE Fall Kickoff", organization: "SASE at OU", category: "Social", location: "Oklahoma Memorial Union", city: "Norman", lat: 35.2097, lng: -97.4446, daysFromNow: -21, start: [18, 0], hours: 2, departBeforeMin: 15, tags: ["Free food"], registrationUrl: null },
 ];
 
 // Titles from earlier seeds, deleted so reruns don't leave duplicates behind.
@@ -155,7 +158,10 @@ interested("rider4@ou.edu", "festival", 10);
 interested("rider3@ou.edu", "concert", 11);
 
 // Crowd: spread so each sort (Most going, Trending, Open seats, Soonest) gives a clear order.
-const PICKUP_KEYS = Object.keys(PICKUP_POINTS) as PickupKey[];
+const PICKUP_KEYS: PickupKey[] = [
+  "union", "bizzell", "adams", "couch", "headington", "gaylord", "sarkeys", "cross",
+  "campuscorner", "crimsonpark", "callaway", "jenkins", "traditions", "mainst",
+];
 const crowdGoing = (i: number, event: string, daysAgo: number) => {
   const u = CROWD[i];
   const isDriver = u.mpg !== null;
@@ -177,6 +183,46 @@ for (let i = 16; i <= 19; i++) interested(CROWD[i].email, "festival", 11);
 crowdGoing(37, "concert", 12);
 for (let i = 6; i <= 9; i++) interested(CROWD[i].email, "concert", 12);
 
+// Past kickoff: driver1 drove rider3 and two crowd riders; driver2 drove rider4
+// and a crowd rider; one crowd driver drove two crowd riders. Riders reviewed them.
+going("driver1@ou.edu", "kickoff", { role: "driver", pickup: "headington", seats: 3 }, 25);
+going("driver2@ou.edu", "kickoff", { role: "driver", pickup: "gaylord", seats: 2 }, 25);
+going(CROWD[0].email, "kickoff", { role: "driver", pickup: "union", seats: 2 }, 25);
+for (const email of ["rider3@ou.edu", "rider4@ou.edu", CROWD[3].email, CROWD[4].email, CROWD[5].email, CROWD[8].email, CROWD[9].email]) {
+  going(email, "kickoff", { role: "rider", pickup: "couch" }, 25);
+}
+const PAST_TRIPS: { driver: string; riders: { email: string; rating: number; comment: string | null }[] }[] = [
+  {
+    driver: "driver1@ou.edu",
+    riders: [
+      { email: "rider3@ou.edu", rating: 5, comment: "On time and great music." },
+      { email: CROWD[3].email, rating: 5, comment: "Super friendly, would ride again." },
+      { email: CROWD[4].email, rating: 4, comment: null },
+    ],
+  },
+  {
+    driver: "driver2@ou.edu",
+    riders: [
+      { email: "rider4@ou.edu", rating: 5, comment: "Smooth drive, coffee stop was a win." },
+      { email: CROWD[5].email, rating: 5, comment: null },
+    ],
+  },
+  {
+    driver: CROWD[0].email,
+    riders: [
+      { email: CROWD[8].email, rating: 4, comment: "Good driver." },
+      { email: CROWD[9].email, rating: 5, comment: null },
+    ],
+  },
+];
+
+// Pending friend requests so the bell and the Friends page have something to show.
+const FRIEND_REQUESTS: [string, string][] = [
+  [CROWD[1].email, "rider1@ou.edu"],
+  [CROWD[3].email, "driver1@ou.edu"],
+  ["rider3@ou.edu", "driver1@ou.edu"],
+];
+
 // rider1 and rider2 are friends ("1 friend is going"); driver1 has 3 friends going to the career fair.
 const FRIENDSHIPS: [string, string][] = [
   ["rider1@ou.edu", "rider2@ou.edu"],
@@ -190,6 +236,15 @@ const FRIENDSHIPS: [string, string][] = [
 function eventTime(daysFromNow: number, hour: number, minute = 0): Date {
   const today = chicagoToday();
   return chicagoToUtc(today.year, today.month, today.day + daysFromNow, hour, minute);
+}
+
+// Stable Oklahoma style plate per driver, e.g. "KTR-482".
+function plateFor(email: string): string {
+  let h = 0;
+  for (const ch of email) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const letters = "ABCDEFGHJKLMNPRSTUVWXYZ";
+  const l = (n: number) => letters[n % letters.length];
+  return `${l(h)}${l(h >> 5)}${l(h >> 10)}-${String(h % 1000).padStart(3, "0")}`;
 }
 
 function check<T>(label: string, result: { data: T | null; error: { message: string } | null }): T {
@@ -248,6 +303,10 @@ async function seedUsers(): Promise<Map<string, string>> {
         year: u.year,
         mpg: u.mpg,
         car_model: u.carModel,
+        // Seeded drivers are pre-verified so the demo can start driving right away.
+        license_plate: u.mpg !== null ? plateFor(u.email) : null,
+        license_state: u.mpg !== null ? "OK" : null,
+        license_verified_at: u.mpg !== null ? new Date(Date.now() - 30 * DAY).toISOString() : null,
         bio: u.bio,
         orgs: u.orgs,
         interests: u.interests,
@@ -286,6 +345,7 @@ async function seedEvents(): Promise<Map<string, string>> {
             tags: e.tags,
             requires_registration: e.registrationUrl !== null,
             registration_url: e.registrationUrl,
+            driver_perk: e.driverPerk ?? null,
           };
         }),
       )
@@ -312,6 +372,10 @@ async function clearUserRows(userIds: string[]) {
     ["event_skips", "user_id"],
     ["friends", "user_a"],
     ["friends", "user_b"],
+    ["friend_requests", "from_user"],
+    ["friend_requests", "to_user"],
+    ["reviews", "reviewer_id"],
+    ["reviews", "reviewee_id"],
   ] as const) {
     check(`delete ${table}.${column}`, await supabase.from(table).delete().in(column, userIds));
   }
@@ -365,6 +429,46 @@ async function seedFriends(users: Map<string, string>) {
   check("insert friends", await supabase.from("friends").insert(rows));
 }
 
+async function seedPastTrips(users: Map<string, string>, events: Map<string, string>) {
+  const eventId = events.get("kickoff")!;
+  const matchedAt = new Date(Date.now() - 22 * DAY).toISOString();
+  for (const t of PAST_TRIPS) {
+    const driverId = users.get(t.driver)!;
+    const [trip] = check(
+      "insert past trip",
+      await supabase.from("trips").insert({ event_id: eventId, driver_id: driverId, cost_mode: "split" }).select("id"),
+    ) as { id: string }[];
+    check(
+      "insert past riders",
+      await supabase
+        .from("trip_riders")
+        .insert(t.riders.map((r) => ({ trip_id: trip.id, rider_id: users.get(r.email)!, event_id: eventId, matched_at: matchedAt }))),
+    );
+    check(
+      "insert reviews",
+      await supabase.from("reviews").insert(
+        t.riders.map((r) => ({
+          trip_id: trip.id,
+          reviewer_id: users.get(r.email)!,
+          reviewee_id: driverId,
+          rating: r.rating,
+          comment: r.comment,
+          created_at: new Date(Date.now() - 20 * DAY).toISOString(),
+        })),
+      ),
+    );
+  }
+}
+
+async function seedFriendRequests(users: Map<string, string>) {
+  check(
+    "insert friend requests",
+    await supabase
+      .from("friend_requests")
+      .insert(FRIEND_REQUESTS.map(([from, to]) => ({ from_user: users.get(from)!, to_user: users.get(to)! }))),
+  );
+}
+
 async function main() {
   const users = await seedUsers();
   console.log(`users: ${DEMO.length} demo + ${CROWD.length} crowd`);
@@ -375,6 +479,10 @@ async function main() {
   console.log(`attendance: ${ATTENDANCE.length}`);
   await seedFriends(users);
   console.log(`friendships: ${FRIENDSHIPS.length}`);
+  await seedPastTrips(users, events);
+  console.log(`past trips with reviews: ${PAST_TRIPS.length}`);
+  await seedFriendRequests(users);
+  console.log(`pending friend requests: ${FRIEND_REQUESTS.length}`);
   console.log(`Done. Demo password: ${PASSWORD}`);
 }
 

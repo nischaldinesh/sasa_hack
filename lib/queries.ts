@@ -7,6 +7,7 @@ import type {
   EventRow,
   EventSummary,
   FriendRow,
+  FriendStatus,
   Partner,
   PersonDeck,
   PopularityRow,
@@ -96,7 +97,7 @@ export async function getPersonDeck(
   eventId: string,
   starReader: SupabaseClient = supabase,
 ): Promise<PersonDeck> {
-  const [attendance, swipes, trips, tripRiders, stars] = await Promise.all([
+  const [attendance, swipes, trips, tripRiders, stars, ratingsRes] = await Promise.all([
     supabase.from("attendance").select("*").eq("event_id", eventId),
     supabase.from("swipes").select("to_user").eq("from_user", userId).eq("event_id", eventId),
     supabase.from("trips").select("id, driver_id").eq("event_id", eventId),
@@ -108,8 +109,15 @@ export async function getPersonDeck(
       .eq("event_id", eventId)
       .eq("direction", "right")
       .eq("starred", true),
+    supabase.from("driver_ratings").select("driver_id, rating, reviews"),
   ]);
   const rows = must(attendance) as AttendanceRow[];
+  const ratings = new Map(
+    (must(ratingsRes) as { driver_id: string; rating: number; reviews: number }[]).map((r) => [
+      r.driver_id,
+      { rating: Number(r.rating), reviews: Number(r.reviews) },
+    ]),
+  );
   const profiles = await getProfiles(
     supabase,
     rows.filter((a) => a.status === "going").map((a) => a.user_id),
@@ -120,6 +128,7 @@ export async function getPersonDeck(
     attendance: rows,
     swipedIds: new Set((must(swipes) as { to_user: string }[]).map((s) => s.to_user)),
     starredMeIds: new Set((must(stars) as { from_user: string }[]).map((s) => s.from_user)),
+    ratings,
     trips: must(trips) as Pick<TripRow, "id" | "driver_id">[],
     tripRiders: must(tripRiders) as Pick<TripRiderRow, "trip_id" | "rider_id">[],
     profiles,
@@ -246,17 +255,27 @@ export type TripMember = {
   pickupLng: number | null;
 };
 
-type TripEvent = EventEmbed & Pick<EventRow, "city">;
+type TripEvent = EventEmbed & Pick<EventRow, "city" | "driver_perk">;
 
 export type TripDetail = {
   id: string;
   costMode: "free" | "split";
   event: TripEvent;
   myRole: Role;
-  driver: TripMember & { mpg: number | null; carModel: string | null; seats: number | null; departTime: string | null };
+  driver: TripMember & {
+    mpg: number | null;
+    carModel: string | null;
+    plate: string | null;
+    verified: boolean;
+    rating: number | null;
+    reviews: number;
+    seats: number | null;
+    departTime: string | null;
+  };
   riders: TripMember[];
   oneWayMiles: number | null;
   roundTripMiles: number | null;
+  myReview: { rating: number; comment: string | null } | null; // riders only
 };
 
 // One trip card. Returns null when the trip doesn't exist or I'm not in it.
@@ -264,7 +283,7 @@ export async function getTripDetail(supabase: SupabaseClient, userId: string, tr
   const [tripRes, ridersRes] = await Promise.all([
     supabase
       .from("trips")
-      .select("id, event_id, driver_id, cost_mode, events(id, title, start_time, location, city, lat, lng)")
+      .select("id, event_id, driver_id, cost_mode, events(id, title, start_time, location, city, lat, lng, driver_perk)")
       .eq("id", tripId)
       .maybeSingle(),
     supabase.from("trip_riders").select("rider_id, matched_at").eq("trip_id", tripId).order("matched_at"),
@@ -275,14 +294,19 @@ export async function getTripDetail(supabase: SupabaseClient, userId: string, tr
   if (trip.driver_id !== userId && !riderIds.includes(userId)) return null;
 
   const memberIds = [trip.driver_id, ...riderIds];
-  const [profiles, attendanceRes] = await Promise.all([
+  const [profiles, attendanceRes, driverRes, ratingRes, reviewRes] = await Promise.all([
     getProfiles(supabase, memberIds),
     supabase
       .from("attendance")
       .select("user_id, pickup_point, pickup_lat, pickup_lng, depart_time, seats")
       .eq("event_id", trip.event_id)
       .in("user_id", memberIds),
+    supabase.from("profiles").select("license_plate, license_verified_at").eq("id", trip.driver_id).maybeSingle(),
+    supabase.from("driver_ratings").select("rating, reviews").eq("driver_id", trip.driver_id).maybeSingle(),
+    supabase.from("reviews").select("rating, comment").eq("trip_id", tripId).eq("reviewer_id", userId).maybeSingle(),
   ]);
+  const driverExtra = must(driverRes) as { license_plate: string | null; license_verified_at: string | null } | null;
+  const driverRating = must(ratingRes) as { rating: number; reviews: number } | null;
   const plans = new Map(
     (must(attendanceRes) as Pick<AttendanceRow, "user_id" | "pickup_point" | "pickup_lat" | "pickup_lng" | "depart_time" | "seats">[]).map(
       (a) => [a.user_id, a],
@@ -317,6 +341,10 @@ export async function getTripDetail(supabase: SupabaseClient, userId: string, tr
       ...member(trip.driver_id),
       mpg: profiles.get(trip.driver_id)?.mpg ?? null,
       carModel: profiles.get(trip.driver_id)?.car_model ?? null,
+      plate: driverExtra?.license_plate ?? null,
+      verified: !!driverExtra?.license_verified_at,
+      rating: driverRating ? Number(driverRating.rating) : null,
+      reviews: driverRating ? Number(driverRating.reviews) : 0,
       seats: driverPlan?.seats ?? null,
       departTime: driverPlan?.depart_time ?? null,
     },
@@ -326,6 +354,7 @@ export async function getTripDetail(supabase: SupabaseClient, userId: string, tr
       driverPlan?.pickup_lat != null && driverPlan.pickup_lng != null
         ? roundTripMiles(driverPlan.pickup_lat, driverPlan.pickup_lng, event.lat, event.lng)
         : null,
+    myReview: must(reviewRes) as { rating: number; comment: string | null } | null,
   };
 }
 
@@ -414,4 +443,51 @@ export async function getMyCategories(supabase: SupabaseClient, userId: string):
     await supabase.from("attendance").select("events(category)").eq("user_id", userId).eq("status", "going"),
   ) as { events: { category: string | null } | null }[];
   return new Set(rows.map((r) => r.events?.category).filter((c): c is string => !!c));
+}
+
+// Friendship state between me and each of `ids`, for crewmate buttons.
+export async function getFriendStatuses(
+  supabase: SupabaseClient,
+  userId: string,
+  ids: string[],
+): Promise<Map<string, FriendStatus>> {
+  const statuses = new Map<string, FriendStatus>(ids.map((id) => [id, "none"]));
+  if (ids.length === 0) return statuses;
+  const [friendsRes, requestsRes] = await Promise.all([
+    supabase.from("friends").select("user_a, user_b").or(`user_a.eq.${userId},user_b.eq.${userId}`),
+    supabase
+      .from("friend_requests")
+      .select("from_user, to_user")
+      .eq("status", "pending")
+      .or(`from_user.eq.${userId},to_user.eq.${userId}`),
+  ]);
+  const friendIds = new Set((must(friendsRes) as FriendRow[]).map((f) => (f.user_a === userId ? f.user_b : f.user_a)));
+  for (const r of must(requestsRes) as { from_user: string; to_user: string }[]) {
+    if (r.from_user === userId && statuses.has(r.to_user)) statuses.set(r.to_user, "sent");
+    if (r.to_user === userId && statuses.has(r.from_user)) statuses.set(r.from_user, "received");
+  }
+  for (const id of ids) if (friendIds.has(id)) statuses.set(id, "friends");
+  return statuses;
+}
+
+export type FriendRequest = { fromId: string; name: string; major: string | null; year: string | null; createdAt: string };
+
+// Pending requests sent to me, newest first.
+export async function getIncomingRequests(supabase: SupabaseClient, userId: string): Promise<FriendRequest[]> {
+  const rows = must(
+    await supabase
+      .from("friend_requests")
+      .select("from_user, created_at")
+      .eq("to_user", userId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false }),
+  ) as { from_user: string; created_at: string }[];
+  const profiles = await getProfiles(supabase, rows.map((r) => r.from_user));
+  return rows.map((r) => ({
+    fromId: r.from_user,
+    name: profiles.get(r.from_user)?.name ?? "Sooner",
+    major: profiles.get(r.from_user)?.major ?? null,
+    year: profiles.get(r.from_user)?.year ?? null,
+    createdAt: r.created_at,
+  }));
 }

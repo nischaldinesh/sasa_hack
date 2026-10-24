@@ -43,13 +43,14 @@ export default function DiscoverDeck({ events }: { events: EventSummary[] }) {
       });
       return;
     }
-    // Right: interested. Registration first when the event needs it.
+    // Right: interested, then the registration sheet (every event; already
+    // registered events go straight to How are you going).
     startTransition(async () => {
       const result = await markInterested(event.id);
       if (result.error) setError(result.error);
     });
-    if (event.requires_registration && !event.myRegistered) setLiked(event);
-    else router.push(`/events/${event.id}`);
+    if (event.myRegistered) router.push(`/events/${event.id}`);
+    else setLiked(event);
   }
 
   function toggle(category: string) {

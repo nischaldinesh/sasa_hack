@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PickupPicker from "@/components/PickupPicker";
 import { CarIcon, CheckIcon, LockIcon, UserIcon } from "@/components/Icons";
@@ -12,6 +13,8 @@ type Props = {
   eventId: string;
   joined: boolean;
   locked: boolean; // in a trip for this event: role and attendance can't change
+  verified: boolean; // driver's license check approved
+  driverPerk: string | null;
   initial: {
     role: Role;
     pickup: PickupKey | null;
@@ -78,7 +81,7 @@ function RoleCard({
   );
 }
 
-export default function HowGoingForm({ eventId, joined, locked, initial }: Props) {
+export default function HowGoingForm({ eventId, joined, locked, verified, driverPerk, initial }: Props) {
   const router = useRouter();
   const [role, setRole] = useState<Role>(initial.role);
   const [seats, setSeats] = useState(initial.seats);
@@ -129,6 +132,27 @@ export default function HowGoingForm({ eventId, joined, locked, initial }: Props
           title="I'm driving"
           subtitle="Offer seats to riders on your route"
         >
+          {driverPerk && (
+            <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900">
+              🎁 <b>Drivers get:</b> {driverPerk}
+            </p>
+          )}
+          {verified ? (
+            <p className="text-sm font-semibold text-green-600">✓ Verified driver</p>
+          ) : (
+            <div className="flex items-center justify-between gap-3 rounded-2xl bg-crimson-soft p-4">
+              <div>
+                <p className="font-bold text-crimson">Verify your license to drive</p>
+                <p className="text-sm text-zinc-600">Add your plate and a license photo. Takes a minute.</p>
+              </div>
+              <Link
+                href={`/profile/verify?next=${encodeURIComponent(`/events/${eventId}`)}`}
+                className="shrink-0 rounded-xl bg-crimson px-4 py-2.5 font-bold text-white"
+              >
+                Verify
+              </Link>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
               <span className={label}>Available seats</span>
@@ -213,7 +237,7 @@ export default function HowGoingForm({ eventId, joined, locked, initial }: Props
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:static md:border-0 md:bg-transparent md:p-0">
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || (role === "driver" && !verified)}
           className="h-14 w-full rounded-2xl bg-crimson text-lg font-bold text-white shadow-lg shadow-crimson/25 disabled:opacity-60"
         >
           {pending ? "Saving…" : role === "driver" ? "Join as Driver — Find Riders" : "Join as Rider — Find Drivers"}

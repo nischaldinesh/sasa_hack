@@ -47,3 +47,16 @@ describe("shortCity", () => {
     expect(shortCity(null)).toBeNull();
   });
 });
+
+describe("isDroppedOff", async () => {
+  const { isDroppedOff } = await import("../lib/trip");
+  const now = Date.parse("2026-11-01T15:00:00Z");
+  it("uses the arrival estimate when there is one", () => {
+    expect(isDroppedOff("2026-11-01T14:59:00Z", "2026-11-01T16:00:00Z", now)).toBe(true);
+    expect(isDroppedOff("2026-11-01T15:01:00Z", "2026-11-01T14:00:00Z", now)).toBe(false);
+  });
+  it("falls back to the event start", () => {
+    expect(isDroppedOff(null, "2026-11-01T14:00:00Z", now)).toBe(true);
+    expect(isDroppedOff(null, "2026-11-01T16:00:00Z", now)).toBe(false);
+  });
+});

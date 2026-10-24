@@ -44,7 +44,7 @@ async function EventJoin({ params }: { params: PageProps<"/events/[id]">["params
       .eq("event_id", id)
       .eq("user_id", user.id)
       .maybeSingle(),
-    supabase.from("profiles").select("mpg, car_model").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("mpg, car_model, license_verified_at").eq("id", user.id).maybeSingle(),
   ]);
   if (!event) notFound();
   if (mine.error || profile.error) throw new Error((mine.error ?? profile.error)!.message);
@@ -115,6 +115,8 @@ async function EventJoin({ params }: { params: PageProps<"/events/[id]">["params
           eventId={event.id}
           joined={joined}
           locked={lock.locked}
+          verified={!!profile.data?.license_verified_at}
+          driverPerk={event.driver_perk}
           initial={{
             role: (joined ? mine.data?.role : null) ?? (profile.data?.car_model || profile.data?.mpg ? "driver" : "rider"),
             pickup: pickupKeyByName(mine.data?.pickup_point ?? null),

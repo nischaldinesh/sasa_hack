@@ -2,15 +2,16 @@ import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import AddCrewButton from "@/components/AddCrewButton";
 import Avatar from "@/components/Avatar";
+import CrewFriends from "@/components/CrewFriends";
+import ReviewCard from "@/components/ReviewCard";
 import { ChevronLeftIcon } from "@/components/Icons";
 import { createClient } from "@/lib/supabase/server";
-import { getFriends, getTripDetail, type TripMember } from "@/lib/queries";
+import { getFriendStatuses, getTripDetail, type TripMember } from "@/lib/queries";
 import { costBreakdown, formatUsd } from "@/lib/cost";
 import { shortMajor } from "@/lib/reasons";
 import { shortName } from "@/lib/names";
-import { arrivalEstimate, orderStops, shortCity } from "@/lib/trip";
+import { arrivalEstimate, isDroppedOff, orderStops, shortCity } from "@/lib/trip";
 import { formatClock, formatLongDate } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Trip card" };
@@ -41,13 +42,26 @@ function Card({ title, aside, children }: { title: string; aside?: ReactNode; ch
   );
 }
 
-function CrewRow({ member, isMe, role, detail }: { member: TripMember; isMe: boolean; role: "Driver" | "Rider"; detail: string }) {
+function CrewRow({
+  member,
+  isMe,
+  role,
+  detail,
+  badge,
+}: {
+  member: TripMember;
+  isMe: boolean;
+  role: "Driver" | "Rider";
+  detail: string;
+  badge?: string;
+}) {
   return (
     <li className="flex items-center gap-4 py-2.5">
       <Avatar name={member.name} size="lg" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-lg font-bold">{isMe ? `You (${shortName(member.name)})` : member.name}</p>
         <p className="truncate text-zinc-500">{detail}</p>
+        {badge && <p className="text-sm font-semibold text-green-600">{badge}</p>}
       </div>
       <span
         className={`rounded-xl px-3 py-1.5 font-semibold ${role === "Driver" ? "bg-crimson-soft text-crimson" : "bg-zinc-100 text-zinc-600"}`}
@@ -68,12 +82,12 @@ async function TripCard({ params }: { params: PageProps<"/trips/[id]">["params"]
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
-  const [trip, friends] = await Promise.all([getTripDetail(supabase, user.id, id), getFriends(supabase, user.id)]);
+  const trip = await getTripDetail(supabase, user.id, id);
   if (!trip) notFound();
 
   const { driver, riders, event } = trip;
   const crewmates = [driver, ...riders].filter((m) => m.id !== user.id);
-  const friendIds = new Set(friends.map((f) => f.id));
+  const statuses = await getFriendStatuses(supabase, user.id, crewmates.map((m) => m.id));
   const stops = orderStops(
     { name: driver.pickupPoint, lat: driver.pickupLat, lng: driver.pickupLng },
     riders.map((r) => ({ name: r.pickupPoint, lat: r.pickupLat, lng: r.pickupLng })),
@@ -81,6 +95,8 @@ async function TripCard({ params }: { params: PageProps<"/trips/[id]">["params"]
   const venue = [event.location, shortCity(event.city)].filter(Boolean).join(", ");
   const arrive = driver.departTime && trip.oneWayMiles != null ? arrivalEstimate(driver.departTime, trip.oneWayMiles) : null;
   const miles = trip.roundTripMiles;
+  const arrived = isDroppedOff(arrive, event.start_time);
+  const perk = event.driver_perk;
   const split =
     trip.costMode === "split" && miles && driver.mpg ? costBreakdown(miles, driver.mpg, GAS_PRICE, USAGE_RATE, riders.length) : null;
 
@@ -110,7 +126,16 @@ async function TripCard({ params }: { params: PageProps<"/trips/[id]">["params"]
               member={driver}
               isMe={driver.id === user.id}
               role="Driver"
-              detail={[driver.carModel, driver.mpg ? `${driver.mpg} mpg` : null].filter(Boolean).join(" · ") || "Car details not set"}
+              detail={
+                [driver.carModel, driver.mpg ? `${driver.mpg} mpg` : null, driver.plate].filter(Boolean).join(" · ") ||
+                "Car details not set"
+              }
+              badge={[
+                driver.verified ? "✓ Verified driver" : null,
+                driver.rating != null ? `★ ${driver.rating.toFixed(1)} (${driver.reviews})` : "New driver",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             />
             {riders.map((r) => (
               <CrewRow
@@ -123,6 +148,18 @@ async function TripCard({ params }: { params: PageProps<"/trips/[id]">["params"]
             ))}
           </ul>
         </Card>
+
+        {perk && trip.myRole === "driver" && (
+          <section className="flex items-center gap-4 rounded-3xl bg-amber-50 p-5 ring-1 ring-amber-200">
+            <span className="text-3xl" aria-hidden>
+              🎁
+            </span>
+            <div>
+              <p className="text-sm font-bold uppercase tracking-wider text-amber-700">Driver perk from {event.title}</p>
+              <p className="text-lg font-bold">{perk}</p>
+            </div>
+          </section>
+        )}
 
         <Card title="Route">
           <ol className="relative flex flex-col gap-8 pl-8">
@@ -194,19 +231,12 @@ async function TripCard({ params }: { params: PageProps<"/trips/[id]">["params"]
           )}
         </Card>
 
+        {trip.myRole === "rider" && (
+          <ReviewCard tripId={trip.id} driverName={driver.name} arrived={arrived} existing={trip.myReview} />
+        )}
+
         {crewmates.length > 0 && (
-          <section className="flex items-center gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-100">
-            <div className="flex shrink-0 -space-x-3">
-              {crewmates.slice(0, 3).map((m) => (
-                <Avatar key={m.id} name={m.name} size="md" className="ring-4 ring-white" />
-              ))}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-bold leading-tight">Add your crewmates as friends</p>
-              <p className="text-sm text-zinc-500">See their future events · Ride together again</p>
-            </div>
-            <AddCrewButton ids={crewmates.map((m) => m.id)} alreadyFriends={crewmates.every((m) => friendIds.has(m.id))} />
-          </section>
+          <CrewFriends crew={crewmates.map((m) => ({ id: m.id, name: m.name, status: statuses.get(m.id) ?? "none" }))} />
         )}
       </div>
     </div>

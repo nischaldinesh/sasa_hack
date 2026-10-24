@@ -25,6 +25,11 @@ export default function EventSwipeCard({ event }: { event: EventSummary }) {
   return (
     <article className="relative h-full select-none overflow-hidden rounded-[28px] bg-zinc-900 text-white shadow-2xl shadow-zinc-400/40">
       <EventArt category={event.category} className="absolute inset-0" />
+      {event.driver_perk && (
+        <span className="absolute left-4 top-4 rounded-full bg-amber-400 px-3 py-1.5 text-sm font-bold text-amber-950 shadow">
+          🎁 Driver perk
+        </span>
+      )}
       {isTrending(event) && (
         <span className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-1.5 text-sm font-bold text-green-600 shadow">
           <TrendingIcon /> +{event.newThisWeek} this week
@@ -100,9 +105,14 @@ export function EventDetailsPanel({ event }: { event: EventSummary }) {
           ))}
         </div>
       )}
-      {event.requires_registration && (
-        <p className="rounded-xl bg-orange-50 p-3 text-sm text-orange-800">This event needs registration. We&apos;ll walk you through it.</p>
+      {event.driver_perk && (
+        <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+          🎁 <b>Drivers get:</b> {event.driver_perk}
+        </p>
       )}
+      <p className="rounded-xl bg-orange-50 p-3 text-sm text-orange-800">
+        {event.registration_url ? "This event needs registration." : "RSVP in the app."} We&apos;ll walk you through it.
+      </p>
     </div>
   );
 }

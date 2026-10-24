@@ -60,3 +60,28 @@ export async function markMatchesSeen(): Promise<ActionResult> {
   const { error } = await supabase.from("profiles").update({ matches_seen_at: new Date().toISOString() }).eq("id", user.id);
   return error ? { error: "Couldn't update notifications." } : {};
 }
+
+const STATES = new Set(["OK", "TX", "KS", "AR", "MO", "CO", "NM", "OTHER"]);
+
+// Demo driver verification. No ID service is connected: the license photo is
+// checked only in the browser (never uploaded) and approval is recorded here.
+export async function verifyDriver(plateRaw: string, state: string): Promise<ActionResult> {
+  const plate = plateRaw.trim().toUpperCase().replace(/\s+/g, " ");
+  if (!/^[A-Z0-9][A-Z0-9 -]{1,8}[A-Z0-9]$/.test(plate)) return { error: "Enter your license plate (2 to 10 letters and numbers)." };
+  if (!STATES.has(state)) return { error: "Choose the state on your plate." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Your session expired. Sign in again." };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ license_plate: plate, license_state: state, license_verified_at: new Date().toISOString() })
+    .eq("id", user.id);
+  if (error) return { error: "Couldn't save your verification. Try again." };
+
+  refresh();
+  return { message: "Approved" };
+}

@@ -27,3 +27,9 @@ const SHORT_CITIES: Record<string, string> = { "Oklahoma City": "OKC" };
 export function shortCity(city: string | null): string | null {
   return city ? (SHORT_CITIES[city] ?? city) : null;
 }
+
+// Drop off has happened once the estimated arrival (or, without one, the event
+// start) is in the past. Riders are asked for a review from then on.
+export function isDroppedOff(arrivalIso: string | null, eventStartIso: string, now: number = Date.now()): boolean {
+  return now >= Date.parse(arrivalIso ?? eventStartIso);
+}

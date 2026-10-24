@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BellIcon } from "@/components/Icons";
-import { avatarColor, initials } from "@/lib/names";
+import Avatar from "@/components/Avatar";
 
 type NavInfo = { name: string; unseenMatches: number };
 
@@ -38,7 +38,7 @@ export function BellLink({ unseen }: { unseen: number }) {
   return (
     <Link
       href="/matches"
-      aria-label={unseen > 0 ? `${unseen} new matches` : "Matches"}
+      aria-label={unseen > 0 ? `${unseen} new notifications` : "Notifications"}
       className="relative flex h-11 w-11 items-center justify-center rounded-full text-2xl text-zinc-600 hover:bg-zinc-100"
     >
       <BellIcon />
@@ -49,14 +49,8 @@ export function BellLink({ unseen }: { unseen: number }) {
 
 export function AvatarLink({ name }: { name: string | null }) {
   return (
-    <Link
-      href="/profile"
-      aria-label="Profile"
-      className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold ${
-        name ? avatarColor(name) : "bg-zinc-100"
-      }`}
-    >
-      {name ? initials(name) : ""}
+    <Link href="/profile" aria-label="Profile" className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100">
+      {name && <Avatar name={name} className="h-11 w-11" />}
     </Link>
   );
 }

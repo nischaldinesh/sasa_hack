@@ -9,6 +9,7 @@ export type DeckInput = {
   trips: Pick<TripRow, "id" | "driver_id">[]; // trips for this event
   tripRiders: Pick<TripRiderRow, "trip_id" | "rider_id">[]; // riders for this event
   profiles: Map<string, ProfileRow>;
+  ratings?: Map<string, { rating: number; reviews: number }>; // by driver id
 };
 
 // Riders currently matched into each driver's car for one event.
@@ -77,6 +78,9 @@ export function buildPersonDeck(input: DeckInput): PersonDeck {
       departTime: a.depart_time,
       seatsLeft,
       mpg: a.role === "driver" ? (profile?.mpg ?? null) : null,
+      verified: a.role === "driver" && !!profile?.license_verified_at,
+      rating: a.role === "driver" ? (input.ratings?.get(a.user_id)?.rating ?? null) : null,
+      reviews: a.role === "driver" ? (input.ratings?.get(a.user_id)?.reviews ?? 0) : 0,
       interests: profile?.interests ?? [],
     });
   }

@@ -127,6 +127,9 @@ export async function joinEvent(_prev: ActionResult, formData: FormData): Promis
     if (seats < riderCount) return { error: `You already have ${riderCount} riders, so you need at least ${riderCount} seats.` };
     if (!Number.isFinite(mpg) || mpg <= 0 || mpg > 150) return { error: "Enter your car's mpg (for example 30)." };
 
+    const { data: me } = await supabase.from("profiles").select("license_verified_at").eq("id", user.id).maybeSingle();
+    if (!me?.license_verified_at) return { error: "Verify your driver's license and plate before driving." };
+
     const { error: mpgError } = await supabase.from("profiles").update({ mpg }).eq("id", user.id);
     if (mpgError) return { error: "Couldn't save your mpg. Try again." };
   }

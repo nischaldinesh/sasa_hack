@@ -3,8 +3,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import Avatar from "@/components/Avatar";
+import FriendRequestActions from "@/components/FriendRequestActions";
 import { createClient } from "@/lib/supabase/server";
-import { getEventSummaries, getFriends, getMyCategories } from "@/lib/queries";
+import { getEventSummaries, getFriends, getIncomingRequests, getMyCategories } from "@/lib/queries";
 import { recommendEvents } from "@/lib/recommend";
 import { reasonTags } from "@/lib/reasons";
 import { formatEventTime } from "@/lib/time";
@@ -29,15 +30,35 @@ async function Friends() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
-  const [friends, events, categories] = await Promise.all([
+  const [friends, events, categories, requests] = await Promise.all([
     getFriends(supabase, user.id),
     getEventSummaries(supabase, user.id),
     getMyCategories(supabase, user.id),
+    getIncomingRequests(supabase, user.id),
   ]);
   const recs = recommendEvents(events, categories);
 
   return (
     <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_1fr] md:items-start">
+      {requests.length > 0 && (
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-2 ring-crimson/20 md:col-span-2">
+          <h2 className="mb-3 text-lg font-black">
+            Friend requests <span className="text-crimson">{requests.length}</span>
+          </h2>
+          <ul className="flex flex-col divide-y divide-zinc-100">
+            {requests.map((r) => (
+              <li key={r.fromId} className="flex items-center gap-3 py-3">
+                <Avatar name={r.name} size="md" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold">{r.name}</p>
+                  <p className="truncate text-sm text-zinc-500">{[r.major, r.year].filter(Boolean).join(" · ") || "Sooner"}</p>
+                </div>
+                <FriendRequestActions fromId={r.fromId} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-100">
         <h2 className="mb-3 text-lg font-black">
           Your friends <span className="text-zinc-400">{friends.length}</span>

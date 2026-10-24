@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { ArrowRightIcon, ArrowUpIcon, CheckIcon, LinkIcon, UserIcon } from "@/components/Icons";
-import { avatarColor, firstName, initials, shortName } from "@/lib/names";
+import Avatar from "@/components/Avatar";
+import { firstName, shortName } from "@/lib/names";
 import { shortCity } from "@/lib/trip";
 import { formatClock } from "@/lib/time";
 import type { TripDetail, TripMember } from "@/lib/queries";
@@ -24,11 +25,7 @@ function Person({
   return (
     <div className="flex flex-col items-center gap-2">
       <span className="relative">
-        <span
-          className={`flex h-28 w-28 items-center justify-center rounded-full border-4 border-white text-4xl font-black md:h-32 md:w-32 ${avatarColor(member.name)}`}
-        >
-          {initials(member.name)}
-        </span>
+        <Avatar name={member.name} size="xl" className="border-4 border-white md:h-32 md:w-32" />
         <span
           className={`absolute -bottom-1 -right-1 flex h-10 w-10 items-center justify-center rounded-full border-4 border-[#841617] text-lg text-white ${
             role === "driver" ? "bg-green-500" : "bg-amber-500"

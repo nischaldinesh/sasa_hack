@@ -202,3 +202,15 @@ Missing schema fields: none beyond screen 2.
 | trip_riders | `matched_at timestamptz default now()` | new match notifications |
 | event_skips | table (from m3) | left swipes on events |
 | trigger | `enforce_trip_seats` on `trip_riders` | last seat race (M4) |
+
+## M5 additions (`supabase/m5.sql`)
+
+| Feature | Where | Data |
+| --- | --- | --- |
+| Registration sheet on every right swipe | `/discover` | external link opens `events.registration_url`; otherwise "Register Now" is an in-app RSVP (`attendance.registered`) |
+| Friend requests | trip card "Add All", `/friends`, bell (`/matches`) | `friend_requests` (pending / accepted / declined); `friends` row only on accept |
+| Pickup spots | pickup picker | `lib/places.ts`: on campus, student housing, around Norman (approximate pins) |
+| Driver perk | Discover card, event panel, events list, driver card, trip card (driver) | `events.driver_perk` |
+| Driver verification | `/profile/verify`, driver card gate, Profile | `profiles.license_plate`, `license_state`, `license_verified_at`. Demo check only: the photo stays in the browser |
+| Ride reviews | trip card (riders), person card and crew (ratings) | `reviews`, `driver_ratings` view |
+| Profile pictures | everywhere avatars appear | DiceBear Notionists by Zoish (CC0 1.0), generated locally from the name |

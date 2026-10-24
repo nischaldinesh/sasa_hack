@@ -3,17 +3,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import Avatar from "@/components/Avatar";
+import FriendRequestActions from "@/components/FriendRequestActions";
 import MarkMatchesSeen from "@/components/MarkMatchesSeen";
 import { createClient } from "@/lib/supabase/server";
-import { getMatches } from "@/lib/queries";
+import { getIncomingRequests, getMatches } from "@/lib/queries";
 import { formatEventTime } from "@/lib/time";
 
-export const metadata: Metadata = { title: "Matches" };
+export const metadata: Metadata = { title: "Notifications" };
 
 export default function MatchesPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 pb-24 pt-5 md:px-6 md:py-8">
-      <h1 className="text-3xl font-black tracking-tight">Matches</h1>
+      <h1 className="text-3xl font-black tracking-tight">Notifications</h1>
       <Suspense fallback={<p className="p-10 text-center text-zinc-500">Loading matches…</p>}>
         <Matches />
       </Suspense>
@@ -28,11 +29,14 @@ async function Matches() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
-  const matches = await getMatches(supabase, user.id);
-  if (matches.length === 0) {
+  const [matches, requests] = await Promise.all([
+    getMatches(supabase, user.id),
+    getIncomingRequests(supabase, user.id),
+  ]);
+  if (matches.length === 0 && requests.length === 0) {
     return (
       <div className="flex flex-col items-center gap-3 rounded-3xl bg-white p-10 text-center shadow-sm">
-        <p className="font-black">No matches yet.</p>
+        <p className="font-black">Nothing new yet.</p>
         <p className="text-sm text-zinc-500">Join an event and swipe on people going your way.</p>
         <Link href="/discover" className="rounded-2xl bg-crimson px-5 py-2.5 font-bold text-white">
           Discover events
@@ -42,24 +46,52 @@ async function Matches() {
   }
 
   return (
-    <ul className="flex flex-col gap-3">
-      <MarkMatchesSeen />
-      {matches.map((m) => (
-        <li key={`${m.tripId}-${m.partnerName}-${m.matchedAt}`}>
-          <Link href={`/trips/${m.tripId}`} className="flex items-center gap-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-100">
-            <Avatar name={m.partnerName} size="md" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-bold">
-                {m.partnerName} <span className="font-normal text-zinc-500">· {m.partnerRole}</span>
-              </p>
-              <p className="truncate text-sm text-zinc-500">
-                {m.eventTitle} · matched {formatEventTime(m.matchedAt)}
-              </p>
-            </div>
-            {m.unseen && <span className="rounded-full bg-crimson px-2.5 py-1 text-xs font-bold text-white">New</span>}
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <>
+      {requests.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-400">Friend requests</h2>
+          <ul className="flex flex-col gap-3">
+            {requests.map((r) => (
+              <li
+                key={r.fromId}
+                className="flex items-center gap-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-100"
+              >
+                <Avatar name={r.name} size="md" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold">{r.name}</p>
+                  <p className="truncate text-sm text-zinc-500">wants to be friends · {formatEventTime(r.createdAt)}</p>
+                </div>
+                <FriendRequestActions fromId={r.fromId} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {matches.length > 0 && <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-400">Matches</h2>}
+      <ul className="flex flex-col gap-3">
+        <MarkMatchesSeen />
+        {matches.map((m) => (
+          <li key={`${m.tripId}-${m.partnerName}-${m.matchedAt}`}>
+            <Link
+              href={`/trips/${m.tripId}`}
+              className="flex items-center gap-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-100"
+            >
+              <Avatar name={m.partnerName} size="md" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-bold">
+                  {m.partnerName} <span className="font-normal text-zinc-500">· {m.partnerRole}</span>
+                </p>
+                <p className="truncate text-sm text-zinc-500">
+                  {m.eventTitle} · matched {formatEventTime(m.matchedAt)}
+                </p>
+              </div>
+              {m.unseen && (
+                <span className="rounded-full bg-crimson px-2.5 py-1 text-xs font-bold text-white">New</span>
+              )}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

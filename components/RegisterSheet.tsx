@@ -10,6 +10,8 @@ import type { EventSummary } from "@/lib/types";
 const STEPS = ["Register for the event", "Tell us how you're getting there", "Meet people riding your way"];
 
 // "You liked this event": bottom sheet on mobile, centered modal on desktop.
+// Shown for every right swipe. Events with an external registration link open
+// it; other events register (RSVP) inside SoonerSwipe.
 export default function RegisterSheet({ event, onClose }: { event: EventSummary; onClose: () => void }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -65,7 +67,9 @@ export default function RegisterSheet({ event, onClose }: { event: EventSummary;
           <div>
             <h3 className="text-2xl font-black tracking-tight">Register to lock in your spot</h3>
             <p className="mt-1 text-zinc-500">
-              {event.title} needs a registration. Register first, then we&apos;ll find you a ride.
+              {event.registration_url
+                ? `${event.title} needs a registration with ${event.organization ?? "the host"}. Register first, then we'll find you a ride.`
+                : `RSVP so ${event.organization ?? "the host"} knows you're coming, then we'll find you a ride.`}
             </p>
           </div>
 
@@ -99,14 +103,16 @@ export default function RegisterSheet({ event, onClose }: { event: EventSummary;
             >
               Register Now
             </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => register(false)}
-              className="h-14 rounded-2xl bg-zinc-100 text-lg font-bold text-zinc-700 disabled:opacity-60"
-            >
-              I&apos;ve already registered
-            </button>
+            {event.registration_url && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => register(false)}
+                className="h-14 rounded-2xl bg-zinc-100 text-lg font-bold text-zinc-700 disabled:opacity-60"
+              >
+                I&apos;ve already registered
+              </button>
+            )}
             <button type="button" onClick={onClose} className="h-10 text-zinc-400">
               Not now, keep swiping
             </button>

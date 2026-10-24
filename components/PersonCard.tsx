@@ -1,6 +1,6 @@
 import { ClockIcon, PinIcon, StarIcon, CarIcon } from "@/components/Icons";
 import { formatMiles } from "@/lib/deck";
-import { avatarColor, initials } from "@/lib/names";
+import Avatar from "@/components/Avatar";
 import { formatClock, formatEventTime } from "@/lib/time";
 import type { PersonCardData } from "@/lib/types";
 
@@ -46,11 +46,7 @@ export default function PersonCard({ person }: { person: PersonCardData }) {
         <span className={`absolute right-4 top-4 flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold ${pill.className}`}>
           <span className={`h-2.5 w-2.5 rounded-full ${pill.dot}`} /> {pill.text}
         </span>
-        <span
-          className={`flex h-28 w-28 items-center justify-center rounded-full bg-white text-4xl font-black shadow-lg ${avatarColor(person.name).split(" ")[1]}`}
-        >
-          {initials(person.name)}
-        </span>
+        <Avatar name={person.name} size="xl" className="h-32 w-32 border-4 border-white shadow-lg" />
         <span className="absolute bottom-4 left-4 flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm font-bold text-green-600 shadow-sm">
           <PinIcon /> {formatMiles(person.distanceMiles)} from your pickup
         </span>
@@ -78,6 +74,16 @@ export default function PersonCard({ person }: { person: PersonCardData }) {
           {person.role === "driver" && person.mpg && (
             <span className="flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-700">
               <CarIcon /> {person.mpg} mpg
+            </span>
+          )}
+          {person.role === "driver" && person.verified && (
+            <span className="flex items-center gap-1.5 rounded-xl bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-700">
+              ✓ Verified driver
+            </span>
+          )}
+          {person.role === "driver" && (
+            <span className="flex items-center gap-1.5 rounded-xl bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">
+              <StarIcon fill="currentColor" /> {person.rating != null ? `${person.rating.toFixed(1)} (${person.reviews})` : "New driver"}
             </span>
           )}
           <OrgBadges orgs={person.orgs} />
@@ -114,6 +120,10 @@ export function PersonDetailsPanel({ person }: { person: PersonCardData }) {
             <dd className="font-semibold">{person.seatsLeft} open</dd>
             <dt className="text-zinc-400">Car</dt>
             <dd className="font-semibold">{person.mpg ? `${person.mpg} mpg` : "—"}</dd>
+            <dt className="text-zinc-400">Rating</dt>
+            <dd className="font-semibold">{person.rating != null ? `★ ${person.rating.toFixed(1)} from ${person.reviews} rides` : "New driver"}</dd>
+            <dt className="text-zinc-400">License</dt>
+            <dd className="font-semibold">{person.verified ? "✓ Verified" : "Not verified"}</dd>
           </>
         )}
       </dl>
