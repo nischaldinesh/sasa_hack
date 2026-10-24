@@ -5,6 +5,7 @@ export type DeckInput = {
   meId: string;
   attendance: AttendanceRow[]; // rows for this event
   swipedIds: Set<string>; // people I already swiped on for this event
+  starredMeIds?: Set<string>; // people who starred me for this event: shown first
   trips: Pick<TripRow, "id" | "driver_id">[]; // trips for this event
   tripRiders: Pick<TripRiderRow, "trip_id" | "rider_id">[]; // riders for this event
   profiles: Map<string, ProfileRow>;
@@ -23,9 +24,11 @@ export function ridersByDriver(input: Pick<DeckInput, "trips" | "tripRiders">): 
 
 // Person deck rules (AGENTS.md 6.3): going, opposite role, not me, not already
 // swiped, drivers with a free seat, riders not already in a car. A rider who is
-// already in a trip sees no deck. Sorted by distance between pickups.
+// already in a trip sees no deck. People who starred me come first, then by
+// distance between pickups.
 export function buildPersonDeck(input: DeckInput): PersonDeck {
   const { meId, attendance, swipedIds, trips, tripRiders, profiles } = input;
+  const starredMe = input.starredMeIds ?? new Set<string>();
   const me = attendance.find((a) => a.user_id === meId);
   if (!me || me.status !== "going" || !me.role || me.pickup_lat == null || me.pickup_lng == null) {
     return { status: "not-going", myRole: null, myTripId: null, people: [] };
@@ -64,6 +67,10 @@ export function buildPersonDeck(input: DeckInput): PersonDeck {
       userId: a.user_id,
       name: profile?.name ?? "Sooner",
       major: profile?.major ?? null,
+      year: profile?.year ?? null,
+      bio: profile?.bio ?? null,
+      orgs: profile?.orgs ?? [],
+      starredMe: starredMe.has(a.user_id),
       role: a.role,
       pickupPoint: a.pickup_point,
       distanceMiles: haversineMiles(me.pickup_lat, me.pickup_lng, a.pickup_lat, a.pickup_lng),
@@ -74,7 +81,10 @@ export function buildPersonDeck(input: DeckInput): PersonDeck {
     });
   }
 
-  people.sort((x, y) => x.distanceMiles - y.distanceMiles || x.name.localeCompare(y.name));
+  people.sort(
+    (x, y) =>
+      Number(y.starredMe) - Number(x.starredMe) || x.distanceMiles - y.distanceMiles || x.name.localeCompare(y.name),
+  );
   return {
     status: "open",
     myRole: me.role,

@@ -51,3 +51,13 @@ describe("formatEventTime", () => {
     expect(formatEventTime("2026-11-02T16:00:00.000Z")).toContain("Nov 2");
   });
 });
+
+describe("short formatters", () => {
+  it("formats a time range in Chicago time", async () => {
+    const { formatTimeRange, formatClock, formatLongDate } = await import("../lib/time");
+    expect(formatTimeRange("2026-11-01T15:00:00.000Z", "2026-11-01T21:00:00.000Z")).toBe("Sun, Nov 1 · 9:00 AM – 3:00 PM");
+    expect(formatTimeRange("2026-11-01T15:00:00.000Z", null)).toBe("Sun, Nov 1 · 9:00 AM");
+    expect(formatClock("2026-10-30T13:15:00.000Z")).toBe("8:15 AM");
+    expect(formatLongDate("2026-11-01T15:00:00.000Z")).toBe("Nov 1, 2026");
+  });
+});

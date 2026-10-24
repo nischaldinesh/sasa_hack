@@ -42,24 +42,28 @@ export function buildEventSummaries(input: {
   userId: string;
   events: EventRow[];
   popularity: PopularityRow[];
-  attendance: Pick<AttendanceRow, "user_id" | "event_id" | "status" | "role" | "seats">[];
+  attendance: (Pick<AttendanceRow, "user_id" | "event_id" | "status" | "role" | "seats"> & { registered?: boolean })[];
   friends: FriendRow[];
   trips: TripRow[];
   tripRiders: Pick<TripRiderRow, "trip_id">[];
   skippedIds?: Set<string>;
+  profiles?: Map<string, { name: string; major: string | null }>;
 }): EventSummary[] {
-  const { userId, events, popularity, attendance, friends, trips, tripRiders, skippedIds } = input;
+  const { userId, events, popularity, attendance, friends, trips, tripRiders, skippedIds, profiles } = input;
   const pop = new Map(popularity.map((p) => [p.id, p]));
   const friendIds = friendIdsOf(userId, friends);
   const openSeats = openSeatsByEvent(attendance, trips, tripRiders);
 
-  const friendsGoing = new Map<string, number>();
+  const friendNames = new Map<string, string[]>();
+  const majors = new Map<string, (string | null)[]>();
   const mine = new Map<string, (typeof attendance)[number]>();
   for (const a of attendance) {
     if (a.user_id === userId) mine.set(a.event_id, a);
-    if (a.status === "going" && friendIds.has(a.user_id)) {
-      friendsGoing.set(a.event_id, (friendsGoing.get(a.event_id) ?? 0) + 1);
+    if (a.status !== "going") continue;
+    if (friendIds.has(a.user_id)) {
+      friendNames.set(a.event_id, [...(friendNames.get(a.event_id) ?? []), profiles?.get(a.user_id)?.name ?? "Friend"]);
     }
+    majors.set(a.event_id, [...(majors.get(a.event_id) ?? []), profiles?.get(a.user_id)?.major ?? null]);
   }
 
   return events.map((e) => {
@@ -70,11 +74,14 @@ export function buildEventSummaries(input: {
       going: Number(p?.going ?? 0),
       interested: Number(p?.interested ?? 0),
       newThisWeek: Number(p?.new_this_week ?? 0),
-      friendsGoing: friendsGoing.get(e.id) ?? 0,
+      friendsGoing: friendNames.get(e.id)?.length ?? 0,
       openSeats: openSeats.get(e.id) ?? 0,
       myStatus: my?.status ?? null,
       myRole: my?.role ?? null,
+      myRegistered: my?.registered ?? false,
       skipped: skippedIds?.has(e.id) ?? false,
+      friendNames: friendNames.get(e.id) ?? [],
+      goingMajors: majors.get(e.id) ?? [],
     };
   });
 }
@@ -94,12 +101,23 @@ export function filterEvents<T extends Pick<EventRow, "title" | "organization" |
 const bySoonest = (a: Pick<EventRow, "start_time">, b: Pick<EventRow, "start_time">) =>
   Date.parse(a.start_time) - Date.parse(b.start_time);
 
-// Returns a new sorted array. "going" breaks ties by interested, then soonest.
-export function sortEvents<T extends Pick<EventSummary, "going" | "interested" | "start_time">>(
-  events: T[],
-  key: SortKey,
-): T[] {
+// Returns a new sorted array. Ties fall back to most going, then soonest.
+export function sortEvents<
+  T extends Pick<EventSummary, "going" | "interested" | "start_time" | "newThisWeek" | "openSeats">,
+>(events: T[], key: SortKey): T[] {
+  const byGoing = (a: T, b: T) => b.going - a.going || b.interested - a.interested || bySoonest(a, b);
   const sorted = [...events];
-  if (key === "soonest") return sorted.sort(bySoonest);
-  return sorted.sort((a, b) => b.going - a.going || b.interested - a.interested || bySoonest(a, b));
+  switch (key) {
+    case "soonest":
+      return sorted.sort(bySoonest);
+    case "trending":
+      return sorted.sort((a, b) => b.newThisWeek - a.newThisWeek || byGoing(a, b));
+    case "seats":
+      return sorted.sort((a, b) => b.openSeats - a.openSeats || byGoing(a, b));
+    default:
+      return sorted.sort(byGoing);
+  }
 }
+
+export const TRENDING_MIN = 5;
+export const isTrending = (e: Pick<EventSummary, "newThisWeek">) => e.newThisWeek >= TRENDING_MIN;

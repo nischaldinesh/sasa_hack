@@ -17,11 +17,13 @@ function going(user_id: string, role: "driver" | "rider", at: { lat: number; lng
     pickup_lng: at.lng,
     depart_time: null,
     seats: role === "driver" ? (seats ?? 3) : null,
+    registered: false,
+    split_gas: true,
   };
 }
 
 const profiles = new Map<string, ProfileRow>(
-  ["me", "d1", "d2", "d3", "r1", "r2", "r3"].map((id) => [id, { id, name: id.toUpperCase(), major: null, mpg: 30, interests: [] }]),
+  ["me", "d1", "d2", "d3", "r1", "r2", "r3"].map((id) => [id, { id, name: id.toUpperCase(), major: null, year: null, bio: null, orgs: [], car_model: null, mpg: 30, interests: [] }]),
 );
 
 const base = { swipedIds: new Set<string>(), trips: [], tripRiders: [], profiles };
@@ -55,6 +57,19 @@ describe("buildPersonDeck", () => {
     });
     expect(deck.people.map((p) => p.userId)).toEqual(["r1"]);
     expect(deck.people[0].mpg).toBeNull();
+  });
+
+  it("puts people who starred me first, with a flag", () => {
+    const deck = buildPersonDeck({
+      ...base,
+      meId: "me",
+      starredMeIds: new Set(["d1"]),
+      attendance: [going("me", "rider", UNION), going("d1", "driver", HEADINGTON), going("d2", "driver", BIZZELL)],
+    });
+    expect(deck.people.map((p) => [p.userId, p.starredMe])).toEqual([
+      ["d1", true],
+      ["d2", false],
+    ]);
   });
 
   it("hides people I already swiped on", () => {

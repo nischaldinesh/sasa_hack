@@ -30,6 +30,31 @@ export async function markInterested(eventId: string): Promise<ActionResult> {
   return {};
 }
 
+// Registration sheet: "Register Now" or "I've already registered".
+// Keeps an existing going row; creates an interested row if there is none.
+export async function markRegistered(eventId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Your session expired. Sign in again." };
+
+  const { data, error } = await supabase
+    .from("attendance")
+    .update({ registered: true })
+    .eq("user_id", user.id)
+    .eq("event_id", eventId)
+    .select("user_id");
+  if (error) return { error: "Couldn't save your registration. Try again." };
+  if (!data?.length) {
+    const { error: insertError } = await supabase
+      .from("attendance")
+      .insert({ user_id: user.id, event_id: eventId, status: "interested", registered: true });
+    if (insertError) return { error: "Couldn't save your registration. Try again." };
+  }
+  return {};
+}
+
 // Left swipe on an event: remember it so the event stays out of the deck.
 export async function markSkipped(eventId: string): Promise<ActionResult> {
   const supabase = await createClient();

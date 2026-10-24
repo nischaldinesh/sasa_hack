@@ -40,7 +40,7 @@ export async function getEventSummaries(
     ? eventsQuery.eq("id", eventId)
     : eventsQuery.gte("start_time", new Date().toISOString());
 
-  let attendanceQuery = supabase.from("attendance").select("user_id, event_id, status, role, seats");
+  let attendanceQuery = supabase.from("attendance").select("user_id, event_id, status, role, seats, registered");
   let popularityQuery = supabase.from("event_popularity").select("id, going, interested, new_this_week");
   let tripsQuery = supabase.from("trips").select("id, event_id, driver_id");
   let ridersQuery = supabase.from("trip_riders").select("trip_id, rider_id, event_id");
@@ -62,11 +62,16 @@ export async function getEventSummaries(
   ]);
   if (skips.error && !isMissingTable(skips.error)) throw new Error(skips.error.message);
 
+  const attendanceRows = must(attendance) as AttendanceRow[];
+  const goingIds = [...new Set(attendanceRows.filter((a) => a.status === "going").map((a) => a.user_id))];
+  const people = await getProfiles(supabase, goingIds);
+
   return buildEventSummaries({
     userId,
     events: must(events) as EventRow[],
     popularity: must(popularity) as PopularityRow[],
-    attendance: must(attendance) as AttendanceRow[],
+    attendance: attendanceRows,
+    profiles: people,
     friends: must(friends) as FriendRow[],
     trips: must(trips) as TripRow[],
     tripRiders: must(tripRiders) as TripRiderRow[],
@@ -83,12 +88,26 @@ async function getProfiles(supabase: SupabaseClient, ids: string[]): Promise<Map
 }
 
 // People to swipe on for one event (AGENTS.md 6.3).
-export async function getPersonDeck(supabase: SupabaseClient, userId: string, eventId: string): Promise<PersonDeck> {
-  const [attendance, swipes, trips, tripRiders] = await Promise.all([
+// RLS only lets users read their own swipes, so stars toward me are read with
+// `starReader`, a service role client on the server (only ids are used).
+export async function getPersonDeck(
+  supabase: SupabaseClient,
+  userId: string,
+  eventId: string,
+  starReader: SupabaseClient = supabase,
+): Promise<PersonDeck> {
+  const [attendance, swipes, trips, tripRiders, stars] = await Promise.all([
     supabase.from("attendance").select("*").eq("event_id", eventId),
     supabase.from("swipes").select("to_user").eq("from_user", userId).eq("event_id", eventId),
     supabase.from("trips").select("id, driver_id").eq("event_id", eventId),
     supabase.from("trip_riders").select("trip_id, rider_id").eq("event_id", eventId),
+    starReader
+      .from("swipes")
+      .select("from_user")
+      .eq("to_user", userId)
+      .eq("event_id", eventId)
+      .eq("direction", "right")
+      .eq("starred", true),
   ]);
   const rows = must(attendance) as AttendanceRow[];
   const profiles = await getProfiles(
@@ -100,6 +119,7 @@ export async function getPersonDeck(supabase: SupabaseClient, userId: string, ev
     meId: userId,
     attendance: rows,
     swipedIds: new Set((must(swipes) as { to_user: string }[]).map((s) => s.to_user)),
+    starredMeIds: new Set((must(stars) as { from_user: string }[]).map((s) => s.from_user)),
     trips: must(trips) as Pick<TripRow, "id" | "driver_id">[],
     tripRiders: must(tripRiders) as Pick<TripRiderRow, "trip_id" | "rider_id">[],
     profiles,
@@ -282,4 +302,65 @@ export async function getTripDetail(supabase: SupabaseClient, userId: string, tr
         ? roundTripMiles(driverPlan.pickup_lat, driverPlan.pickup_lng, event.lat, event.lng)
         : null,
   };
+}
+
+export type MatchItem = {
+  tripId: string;
+  eventTitle: string;
+  partnerName: string;
+  partnerRole: Role;
+  matchedAt: string;
+  unseen: boolean;
+};
+
+// My matches, newest first, for the bell. A match is a rider joining a trip:
+// riders see their driver, drivers see each rider.
+export async function getMatches(supabase: SupabaseClient, userId: string): Promise<MatchItem[]> {
+  const [profileRes, asRiderRes, myTripsRes] = await Promise.all([
+    supabase.from("profiles").select("matches_seen_at").eq("id", userId).maybeSingle(),
+    supabase.from("trip_riders").select("trip_id, matched_at, trips(driver_id, events(title))").eq("rider_id", userId),
+    supabase.from("trips").select("id, events(title)").eq("driver_id", userId),
+  ]);
+  const seenAt = Date.parse((must(profileRes) as { matches_seen_at: string } | null)?.matches_seen_at ?? "1970-01-01");
+  const asRider = must(asRiderRes) as {
+    trip_id: string;
+    matched_at: string;
+    trips: { driver_id: string; events: { title: string } | null } | null;
+  }[];
+  const myTrips = must(myTripsRes) as { id: string; events: { title: string } | null }[];
+
+  const asDriver = myTrips.length
+    ? (must(
+        await supabase
+          .from("trip_riders")
+          .select("trip_id, rider_id, matched_at")
+          .in("trip_id", myTrips.map((t) => t.id)),
+      ) as { trip_id: string; rider_id: string; matched_at: string }[])
+    : [];
+
+  const names = await getProfiles(supabase, [
+    ...asRider.flatMap((r) => (r.trips ? [r.trips.driver_id] : [])),
+    ...asDriver.map((r) => r.rider_id),
+  ]);
+  const titleByTrip = new Map(myTrips.map((t) => [t.id, t.events?.title ?? "Event"]));
+
+  const items: Omit<MatchItem, "unseen">[] = [
+    ...asRider.map((r) => ({
+      tripId: r.trip_id,
+      eventTitle: r.trips?.events?.title ?? "Event",
+      partnerName: names.get(r.trips?.driver_id ?? "")?.name ?? "Sooner",
+      partnerRole: "driver" as const,
+      matchedAt: r.matched_at,
+    })),
+    ...asDriver.map((r) => ({
+      tripId: r.trip_id,
+      eventTitle: titleByTrip.get(r.trip_id) ?? "Event",
+      partnerName: names.get(r.rider_id)?.name ?? "Sooner",
+      partnerRole: "rider" as const,
+      matchedAt: r.matched_at,
+    })),
+  ];
+  return items
+    .map((m) => ({ ...m, unseen: Date.parse(m.matchedAt) > seenAt }))
+    .sort((a, b) => Date.parse(b.matchedAt) - Date.parse(a.matchedAt));
 }

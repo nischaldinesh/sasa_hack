@@ -129,8 +129,10 @@ function Body({ deck, onSwipe }: { deck: PersonDeck; onSwipe: (p: PersonCardData
         getKey={(p) => p.userId}
         renderCard={(p) => <PersonCard person={p} />}
         onSwipe={onSwipe}
-        leftLabel="Pass"
-        rightLabel={isRider ? "Ride" : "Pick up"}
+        stamps={{
+          right: { label: "Connect", className: "border-green-500 text-green-500 bg-white/70" },
+          left: { label: "Skip", className: "border-red-500 text-red-500 bg-white/70" },
+        }}
         empty={
           <div className="flex flex-col items-center gap-2 rounded-3xl border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
             <p className="font-semibold">

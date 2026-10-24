@@ -12,6 +12,10 @@ const event = (id: string, start: string, extra: Partial<EventRow> = {}): EventR
   lng: -97.4,
   start_time: start,
   tags: [],
+  end_time: null,
+  city: null,
+  requires_registration: false,
+  registration_url: null,
   ...extra,
 });
 
@@ -61,6 +65,8 @@ describe("buildEventSummaries", () => {
       tripRiders: [],
     });
     expect(s).toMatchObject({ going: 3, interested: 2, newThisWeek: 5, friendsGoing: 1, myStatus: "interested", myRole: null });
+    expect(s.friendNames).toEqual(["Friend"]);
+    expect(s.goingMajors).toHaveLength(2);
   });
 });
 
@@ -83,14 +89,22 @@ describe("filterEvents", () => {
 
 describe("sortEvents", () => {
   const rows = [
-    { id: "a", going: 1, interested: 0, start_time: "2026-11-03T00:00:00Z" },
-    { id: "b", going: 6, interested: 0, start_time: "2026-11-05T00:00:00Z" },
-    { id: "c", going: 1, interested: 4, start_time: "2026-11-04T00:00:00Z" },
-    { id: "d", going: 1, interested: 4, start_time: "2026-11-01T00:00:00Z" },
+    { id: "a", going: 1, interested: 0, newThisWeek: 9, openSeats: 0, start_time: "2026-11-03T00:00:00Z" },
+    { id: "b", going: 6, interested: 0, newThisWeek: 2, openSeats: 3, start_time: "2026-11-05T00:00:00Z" },
+    { id: "c", going: 1, interested: 4, newThisWeek: 2, openSeats: 5, start_time: "2026-11-04T00:00:00Z" },
+    { id: "d", going: 1, interested: 4, newThisWeek: 0, openSeats: 0, start_time: "2026-11-01T00:00:00Z" },
   ];
 
   it("sorts by most going, then interested, then soonest", () => {
     expect(sortEvents(rows, "going").map((e) => e.id)).toEqual(["b", "d", "c", "a"]);
+  });
+
+  it("sorts by trending (new this week)", () => {
+    expect(sortEvents(rows, "trending").map((e) => e.id)).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("sorts by open seats", () => {
+    expect(sortEvents(rows, "seats").map((e) => e.id)).toEqual(["c", "b", "d", "a"]);
   });
 
   it("sorts by soonest", () => {

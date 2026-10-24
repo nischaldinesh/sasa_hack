@@ -10,7 +10,11 @@ export type EventRow = {
   lat: number;
   lng: number;
   start_time: string;
+  end_time: string | null;
+  city: string | null;
   tags: string[];
+  requires_registration: boolean;
+  registration_url: string | null;
 };
 
 export type AttendanceRow = {
@@ -23,6 +27,8 @@ export type AttendanceRow = {
   pickup_lng: number | null;
   depart_time: string | null;
   seats: number | null;
+  registered: boolean;
+  split_gas: boolean;
 };
 
 export type PopularityRow = {
@@ -44,15 +50,22 @@ export type EventSummary = EventRow & {
   openSeats: number;
   myStatus: AttendanceStatus | null;
   myRole: Role | null;
+  myRegistered: boolean;
   skipped: boolean;
+  friendNames: string[]; // friends going, for avatars
+  goingMajors: (string | null)[]; // majors of people going, for reason tags
 };
 
-export type SortKey = "going" | "soonest";
+export type SortKey = "going" | "trending" | "seats" | "soonest";
 
 export type ProfileRow = {
   id: string;
   name: string;
   major: string | null;
+  year: string | null;
+  bio: string | null;
+  orgs: string[];
+  car_model: string | null;
   mpg: number | null;
   interests: string[];
 };
@@ -61,6 +74,10 @@ export type PersonCardData = {
   userId: string;
   name: string;
   major: string | null;
+  year: string | null;
+  bio: string | null;
+  orgs: string[];
+  starredMe: boolean;
   role: Role;
   pickupPoint: string | null;
   distanceMiles: number;

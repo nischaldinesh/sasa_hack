@@ -72,3 +72,23 @@ const displayFormatter = new Intl.DateTimeFormat("en-US", {
 export function formatEventTime(iso: string): string {
   return displayFormatter.format(new Date(iso));
 }
+
+function fmt(options: Intl.DateTimeFormatOptions) {
+  const f = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, ...options });
+  return (iso: string) => f.format(new Date(iso));
+}
+
+// "9:00 AM"
+export const formatClock = fmt({ hour: "numeric", minute: "2-digit" });
+// "Sun, Nov 1"
+export const formatDay = fmt({ weekday: "short", month: "short", day: "numeric" });
+// "Nov 1"
+export const formatShortDate = fmt({ month: "short", day: "numeric" });
+// "Nov 1, 2026"
+export const formatLongDate = fmt({ month: "short", day: "numeric", year: "numeric" });
+
+// "Sun, Nov 1 · 9:00 AM – 3:00 PM" (end time optional)
+export function formatTimeRange(startIso: string, endIso: string | null): string {
+  const start = `${formatDay(startIso)} · ${formatClock(startIso)}`;
+  return endIso ? `${start} – ${formatClock(endIso)}` : start;
+}
