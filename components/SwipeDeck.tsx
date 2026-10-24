@@ -202,24 +202,6 @@ export default function SwipeDeck<T>({
         </div>
       )}
 
-      <div className="flex items-center gap-3 text-xs text-zinc-400">
-        <span>
-          {visible.length} {visible.length === 1 ? "card" : "cards"} left
-        </span>
-        {hintKey && !hint && (
-          <>
-            <span aria-hidden>·</span>
-            <button type="button" onClick={() => setHint(true)} className="font-semibold text-zinc-500 underline">
-              How swiping works
-            </button>
-          </>
-        )}
-        <span className="hidden md:inline" aria-hidden>
-          · ← skip · → {stamps.right.label.toLowerCase()}
-          {allowStar ? " · ↑ star" : ""}
-          {renderBack ? " · Enter flip" : ""}
-        </span>
-      </div>
     </div>
   );
 }
