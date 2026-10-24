@@ -1,37 +1,59 @@
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import AddCrewButton from "@/components/AddCrewButton";
+import Avatar from "@/components/Avatar";
+import { ChevronLeftIcon } from "@/components/Icons";
 import { createClient } from "@/lib/supabase/server";
-import { getTripDetail, type TripMember } from "@/lib/queries";
-import { formatEventTime } from "@/lib/time";
+import { getFriends, getTripDetail, type TripMember } from "@/lib/queries";
+import { costBreakdown, formatUsd } from "@/lib/cost";
+import { shortMajor } from "@/lib/reasons";
+import { shortName } from "@/lib/names";
+import { arrivalEstimate, orderStops, shortCity } from "@/lib/trip";
+import { formatClock, formatLongDate } from "@/lib/time";
+
+export const metadata: Metadata = { title: "Trip card" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const GAS_PRICE = Number(process.env.NEXT_PUBLIC_GAS_PRICE ?? 2.8);
+const USAGE_RATE = Number(process.env.NEXT_PUBLIC_USAGE_RATE ?? 0.1);
 
 export default function TripPage({ params }: PageProps<"/trips/[id]">) {
   return (
-    <main className="flex flex-col gap-4 p-4">
-      <Link href="/trips" className="text-sm text-zinc-500">
-        ← Trips
-      </Link>
-      <Suspense fallback={<p className="p-6 text-center text-zinc-500">Loading trip…</p>}>
+    <main className="mx-auto w-full max-w-2xl pb-10 md:px-6 md:py-8">
+      <Suspense fallback={<p className="p-10 text-center text-zinc-500">Loading trip…</p>}>
         <TripCard params={params} />
       </Suspense>
     </main>
   );
 }
 
-function Member({ member, label, isMe }: { member: TripMember; label: string; isMe: boolean }) {
+function Card({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
   return (
-    <li className="flex items-center justify-between gap-3 py-2">
-      <div className="min-w-0">
-        <p className="font-semibold">
-          {member.name}
-          {isMe && <span className="font-normal text-zinc-500"> (you)</span>}
-        </p>
-        <p className="truncate text-xs text-zinc-500">
-          {[label, member.major, member.pickupPoint && `pickup: ${member.pickupPoint}`].filter(Boolean).join(" · ")}
-        </p>
+    <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-100">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-400">{title}</h2>
+        {aside}
       </div>
+      {children}
+    </section>
+  );
+}
+
+function CrewRow({ member, isMe, role, detail }: { member: TripMember; isMe: boolean; role: "Driver" | "Rider"; detail: string }) {
+  return (
+    <li className="flex items-center gap-4 py-2.5">
+      <Avatar name={member.name} size="lg" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-lg font-bold">{isMe ? `You (${shortName(member.name)})` : member.name}</p>
+        <p className="truncate text-zinc-500">{detail}</p>
+      </div>
+      <span
+        className={`rounded-xl px-3 py-1.5 font-semibold ${role === "Driver" ? "bg-crimson-soft text-crimson" : "bg-zinc-100 text-zinc-600"}`}
+      >
+        {role}
+      </span>
     </li>
   );
 }
@@ -46,53 +68,147 @@ async function TripCard({ params }: { params: PageProps<"/trips/[id]">["params"]
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
-  const trip = await getTripDetail(supabase, user.id, id);
+  const [trip, friends] = await Promise.all([getTripDetail(supabase, user.id, id), getFriends(supabase, user.id)]);
   if (!trip) notFound();
 
   const { driver, riders, event } = trip;
-  const seatsText = driver.seats ? `${riders.length}/${driver.seats} seats filled` : `${riders.length} riders`;
+  const crewmates = [driver, ...riders].filter((m) => m.id !== user.id);
+  const friendIds = new Set(friends.map((f) => f.id));
+  const stops = orderStops(
+    { name: driver.pickupPoint, lat: driver.pickupLat, lng: driver.pickupLng },
+    riders.map((r) => ({ name: r.pickupPoint, lat: r.pickupLat, lng: r.pickupLng })),
+  );
+  const venue = [event.location, shortCity(event.city)].filter(Boolean).join(", ");
+  const arrive = driver.departTime && trip.oneWayMiles != null ? arrivalEstimate(driver.departTime, trip.oneWayMiles) : null;
+  const miles = trip.roundTripMiles;
+  const split =
+    trip.costMode === "split" && miles && driver.mpg ? costBreakdown(miles, driver.mpg, GAS_PRICE, USAGE_RATE, riders.length) : null;
 
   return (
-    <article className="flex flex-col gap-4">
-      <section className="rounded-3xl bg-gradient-to-br from-red-900 to-red-600 p-5 text-white">
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/80">Your trip</p>
-        <h1 className="mt-1 text-2xl font-bold leading-tight">
-          <Link href={`/events/${event.id}`}>{event.title}</Link>
-        </h1>
-        <p className="mt-2 text-sm">📅 {formatEventTime(event.start_time)}</p>
-        <p className="text-sm">📍 {event.location}</p>
-      </section>
+    <div className="flex flex-col gap-4">
+      <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-5 py-4 md:rounded-3xl md:border-0 md:shadow-sm">
+        <Link
+          href="/profile#trips"
+          aria-label="Back to my trips"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-2xl text-zinc-600"
+        >
+          <ChevronLeftIcon />
+        </Link>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-zinc-400">Your trip · {formatLongDate(event.start_time)}</p>
+          <h1 className="truncate text-xl font-black tracking-tight">
+            <Link href={`/events/${event.id}`}>{event.title}</Link>
+          </h1>
+        </div>
+        <span className="shrink-0 rounded-2xl bg-green-50 px-4 py-2 font-bold text-green-600">Confirmed</span>
+      </header>
 
-      <section className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500">Pickup point</p>
-          <p className="font-semibold">{driver.pickupPoint ?? "TBD"}</p>
-        </div>
-        <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500">Departure</p>
-          <p className="font-semibold">{driver.departTime ? formatEventTime(driver.departTime) : "TBD"}</p>
-        </div>
-        <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500">Car</p>
-          <p className="font-semibold">{seatsText}</p>
-          {driver.mpg && <p className="text-xs text-zinc-500">{driver.mpg} mpg</p>}
-        </div>
-        <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500">Round trip</p>
-          <p className="font-semibold">{trip.roundTripMiles != null ? `${trip.roundTripMiles} mi` : "TBD"}</p>
-          <p className="text-xs text-zinc-500">approx.</p>
-        </div>
-      </section>
+      <div className="flex flex-col gap-4 px-4 md:px-0">
+        <Card title="Your crew">
+          <ul>
+            <CrewRow
+              member={driver}
+              isMe={driver.id === user.id}
+              role="Driver"
+              detail={[driver.carModel, driver.mpg ? `${driver.mpg} mpg` : null].filter(Boolean).join(" · ") || "Car details not set"}
+            />
+            {riders.map((r) => (
+              <CrewRow
+                key={r.id}
+                member={r}
+                isMe={r.id === user.id}
+                role="Rider"
+                detail={[r.major ? shortMajor(r.major) : null, r.year, r.pickupPoint].filter(Boolean).join(" · ")}
+              />
+            ))}
+          </ul>
+        </Card>
 
-      <section className="rounded-2xl border border-zinc-200 px-4 py-2 dark:border-zinc-800">
-        <h2 className="pt-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">Who&apos;s riding</h2>
-        <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-          <Member member={driver} label="🚗 Driver" isMe={driver.id === user.id} />
-          {riders.map((r) => (
-            <Member key={r.id} member={r} label="🙋 Rider" isMe={r.id === user.id} />
-          ))}
-        </ul>
-      </section>
-    </article>
+        <Card title="Route">
+          <ol className="relative flex flex-col gap-8 pl-8">
+            <span className="absolute bottom-6 left-[7px] top-6 w-0.5 bg-zinc-200" aria-hidden />
+            <li className="relative">
+              <span className="absolute -left-8 top-1.5 h-4 w-4 rounded-full bg-green-500" aria-hidden />
+              <p className="text-lg font-bold">{stops.join(" → ") || "Pickup TBD"}</p>
+              <p className="text-zinc-500">
+                Pickup stops{driver.departTime ? ` · Depart ${formatClock(driver.departTime)}` : ""}
+              </p>
+            </li>
+            <li className="relative">
+              <span className="absolute -left-8 top-1.5 h-4 w-4 rounded-full bg-red-500" aria-hidden />
+              <p className="text-lg font-bold">{venue}</p>
+              <p className="text-zinc-500">
+                {[arrive ? `Arrive ~${formatClock(arrive)}` : null, miles != null ? `~${miles} mi total` : null].filter(Boolean).join(" · ")}
+              </p>
+            </li>
+          </ol>
+        </Card>
+
+        <Card
+          title="Gas split"
+          aside={
+            <span className="rounded-xl bg-green-50 px-3 py-1 text-sm font-bold text-green-600">
+              {trip.costMode === "free" ? "Driver's treat" : "Split evenly"}
+            </span>
+          }
+        >
+          {trip.costMode === "free" ? (
+            <div className="rounded-2xl bg-gradient-to-r from-crimson to-red-600 p-5 text-white">
+              <p className="text-white/80">This ride is on {driver.id === user.id ? "you" : shortName(driver.name)}</p>
+              <p className="text-4xl font-black">Free ride</p>
+            </div>
+          ) : split && miles && driver.mpg ? (
+            <div className="flex flex-col gap-3">
+              <dl className="flex flex-col gap-2 text-lg">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-zinc-500">
+                    Fuel ({miles} mi ÷ {driver.mpg} mpg × {formatUsd(GAS_PRICE)})
+                  </dt>
+                  <dd className="font-semibold">{formatUsd(split.fuel)}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-zinc-500">
+                    Car usage ({miles} mi × {formatUsd(USAGE_RATE)})
+                  </dt>
+                  <dd className="font-semibold">{formatUsd(split.usage)}</dd>
+                </div>
+                <div className="flex justify-between gap-4 border-t border-zinc-100 pt-3">
+                  <dt className="text-zinc-500">Total ÷ {split.people} people</dt>
+                  <dd className="font-semibold">{formatUsd(split.total)}</dd>
+                </div>
+              </dl>
+              <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-crimson to-red-600 p-5 text-white">
+                <div>
+                  <p className="text-white/80">Each person pays</p>
+                  <p className="text-4xl font-black">{formatUsd(split.each)}</p>
+                </div>
+                <div className="text-right text-sm">
+                  <p className="text-white/80">Pay via</p>
+                  <p className="font-bold">Venmo / Cash</p>
+                  <p className="text-white/70">App shows amount only</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-zinc-500">The split appears once the driver&apos;s mpg and pickup are set.</p>
+          )}
+        </Card>
+
+        {crewmates.length > 0 && (
+          <section className="flex items-center gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-100">
+            <div className="flex shrink-0 -space-x-3">
+              {crewmates.slice(0, 3).map((m) => (
+                <Avatar key={m.id} name={m.name} size="md" className="ring-4 ring-white" />
+              ))}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-bold leading-tight">Add your crewmates as friends</p>
+              <p className="text-sm text-zinc-500">See their future events · Ride together again</p>
+            </div>
+            <AddCrewButton ids={crewmates.map((m) => m.id)} alreadyFriends={crewmates.every((m) => friendIds.has(m.id))} />
+          </section>
+        )}
+      </div>
+    </div>
   );
 }

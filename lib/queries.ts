@@ -389,3 +389,29 @@ export async function getMatches(supabase: SupabaseClient, userId: string): Prom
     .map((m) => ({ ...m, unseen: Date.parse(m.matchedAt) > seenAt }))
     .sort((a, b) => Date.parse(b.matchedAt) - Date.parse(a.matchedAt));
 }
+
+export type FriendSummary = { id: string; name: string; major: string | null; year: string | null };
+
+export async function getFriends(supabase: SupabaseClient, userId: string): Promise<FriendSummary[]> {
+  const rows = must(
+    await supabase.from("friends").select("user_a, user_b").or(`user_a.eq.${userId},user_b.eq.${userId}`),
+  ) as FriendRow[];
+  const ids = rows.map((f) => (f.user_a === userId ? f.user_b : f.user_a));
+  const profiles = await getProfiles(supabase, ids);
+  return ids
+    .map((id) => ({
+      id,
+      name: profiles.get(id)?.name ?? "Sooner",
+      major: profiles.get(id)?.major ?? null,
+      year: profiles.get(id)?.year ?? null,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Categories of events I joined as going (any date), for recommendations.
+export async function getMyCategories(supabase: SupabaseClient, userId: string): Promise<Set<string>> {
+  const rows = must(
+    await supabase.from("attendance").select("events(category)").eq("user_id", userId).eq("status", "going"),
+  ) as { events: { category: string | null } | null }[];
+  return new Set(rows.map((r) => r.events?.category).filter((c): c is string => !!c));
+}

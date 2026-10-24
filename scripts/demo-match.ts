@@ -5,12 +5,14 @@
 // 2. rider2 and rider4 also match with driver1 until all 3 seats are taken.
 // 3. Checks a full car disappears from rider1's deck (S4) and that one more
 //    mutual right swipe is refused with { full: true }.
+// 4. Last seat race (M4): two riders race for driver2's last seat, once through
+//    recordSwipe and once with raw concurrent inserts; only one may win.
 //
 // Changes demo data. Run `npm run seed` afterwards to reset.
 // Usage: npm run demo:match
 import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import { recordSwipe, type SwipeResult } from "../lib/match";
+import { isTripFull, recordSwipe, type SwipeResult } from "../lib/match";
 import { getPersonDeck } from "../lib/queries";
 
 config({ path: ".env.local", quiet: true });
@@ -105,6 +107,55 @@ async function main() {
 
   const overflow = await mutualMatch(driver1, rider1, eventId, "driver1 + rider1");
   check("one more mutual right swipe is refused as full", !overflow.matched && overflow.full === true, overflow);
+
+  // 4. Last seat race on driver2 (2 seats): rider1 takes one, then two crowd
+  // riders swipe right first and driver2 accepts both at the same moment.
+  const seats2 = (
+    await admin.from("attendance").select("seats").eq("event_id", eventId).eq("user_id", driver2).single()
+  ).data?.seats;
+  check("driver2 offers 2 seats", seats2 === 2, { seats: seats2 });
+  const first2 = await mutualMatch(driver2, rider1, eventId, "driver2 + rider1");
+  check("driver2 + rider1: matched (1 of 2 seats)", first2.matched === true, first2);
+  const trip2 = first2.matched ? first2.tripId : "";
+
+  const demoIds = new Set([driver1, driver2, rider1, rider2, rider3, rider4]);
+  const { data: crowdRiders } = await admin
+    .from("attendance")
+    .select("user_id")
+    .eq("event_id", eventId)
+    .eq("status", "going")
+    .eq("role", "rider");
+  const [racerA, racerB, racerC, racerD] = (crowdRiders ?? []).map((r) => r.user_id).filter((id) => !demoIds.has(id));
+  if (!racerD) throw new Error("Need 4 crowd riders going to the career fair. Run npm run seed.");
+
+  for (const racer of [racerA, racerB]) {
+    await recordSwipe(admin, racer, { toUser: driver2, eventId, direction: "right" });
+  }
+  const race = await Promise.all([
+    recordSwipe(admin, driver2, { toUser: racerA, eventId, direction: "right" }),
+    recordSwipe(admin, driver2, { toUser: racerB, eventId, direction: "right" }),
+  ]);
+  const winners = race.filter((r) => r.matched).length;
+  const fullLosers = race.filter((r) => !r.matched && r.full).length;
+  check("race via /api/swipe logic: exactly one wins the last seat", winners === 1 && fullLosers === 1, race);
+
+  const { count: riders2 } = await admin.from("trip_riders").select("*", { count: "exact", head: true }).eq("trip_id", trip2);
+  check("driver2's car holds exactly 2 riders", riders2 === 2, { riders: riders2 });
+
+  // Raw concurrent inserts straight into trip_riders: only the seat trigger
+  // stands between them and an overfull car. Free the last seat first.
+  const loser = race[0].matched ? racerA : racerB;
+  await admin.from("trip_riders").delete().eq("trip_id", trip2).eq("rider_id", loser);
+  const inserts = await Promise.all(
+    [racerC, racerD].map((rider) => admin.from("trip_riders").insert({ trip_id: trip2, rider_id: rider, event_id: eventId })),
+  );
+  const ok = inserts.filter((r) => !r.error).length;
+  const rejected = inserts.filter((r) => r.error && isTripFull(r.error)).length;
+  check("trigger: concurrent inserts for one seat, one accepted and one rejected as trip_full", ok === 1 && rejected === 1, {
+    errors: inserts.map((r) => r.error?.message ?? null),
+  });
+  const { count: finalRiders2 } = await admin.from("trip_riders").select("*", { count: "exact", head: true }).eq("trip_id", trip2);
+  check("driver2's car still holds exactly 2 riders", finalRiders2 === 2, { riders: finalRiders2 });
 
   console.log(`\nTrip ${tripId}: driver1 with rider3, rider2, rider4.`);
   console.log("Sign in as driver1@ou.edu or rider3@ou.edu (demo1234) and open Trips to see it.");

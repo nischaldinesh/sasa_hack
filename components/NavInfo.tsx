@@ -15,14 +15,19 @@ export function useNavInfo(): NavInfo | null {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/nav", { cache: "no-store" })
-      .then((res) => (res.ok ? (res.json() as Promise<NavInfo>) : null))
-      .then((data) => {
-        if (active && data) setInfo(data);
-      })
-      .catch(() => {});
+    const load = () =>
+      fetch("/api/nav", { cache: "no-store" })
+        .then((res) => (res.ok ? (res.json() as Promise<NavInfo>) : null))
+        .then((data) => {
+          if (active && data) setInfo(data);
+        })
+        .catch(() => {});
+    load();
+    // Pages that change the nav state (e.g. /matches marking matches seen) fire this.
+    window.addEventListener("nav:refresh", load);
     return () => {
       active = false;
+      window.removeEventListener("nav:refresh", load);
     };
   }, [pathname]);
 
