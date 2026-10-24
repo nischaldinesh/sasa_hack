@@ -1,69 +1,233 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+import { useEffect, useState, type FormEvent } from "react";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
+import { isOuEmail } from "@/lib/auth";
+
+type Mode = "signin" | "signup";
+
+const MAJORS = ["Computer Science", "Engineering", "Business", "Biology", "Other"];
+
+// Creates the profiles row on first sign in if it is missing. The database
+// rejects non @ou.edu emails here too (profiles.email check constraint).
+async function ensureProfile(supabase: SupabaseClient, user: User) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (error) return error.message;
+  if (data) return null;
+
+  const meta = user.user_metadata as { name?: string; major?: string };
+  const { error: insertError } = await supabase.from("profiles").insert({
+    id: user.id,
+    email: user.email,
+    name: meta.name || user.email?.split("@")[0] || "Sooner",
+    major: meta.major || null,
+  });
+  if (insertError) {
+    return insertError.code === "23514"
+      ? "Only @ou.edu emails can use SoonerSwipe."
+      : insertError.message;
+  }
+  return null;
+}
+
+export default function AuthPage() {
+  const [supabase] = useState(createClient);
+  const [mode, setMode] = useState<Mode>("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [major, setMajor] = useState(MAJORS[0]);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      setChecking(false);
+    });
+  }, [supabase]);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setNotice(null);
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!isOuEmail(cleanEmail)) {
+      setError("Use your @ou.edu email address.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (mode === "signup" && !name.trim()) {
+      setError("Enter your name.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: { data: { name: name.trim(), major } },
+        });
+        if (error) return setError(error.message);
+        if (!data.session || !data.user) {
+          return setNotice("Check your inbox to confirm your email, then sign in.");
+        }
+        const profileError = await ensureProfile(supabase, data.user);
+        if (profileError) {
+          await supabase.auth.signOut();
+          return setError(profileError);
+        }
+        setUser(data.user);
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+        if (error) return setError(error.message);
+        const profileError = await ensureProfile(supabase, data.user);
+        if (profileError) {
+          await supabase.auth.signOut();
+          return setError(profileError);
+        }
+        setUser(data.user);
+      }
+    } catch {
+      setError("Something went wrong. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    setUser(null);
+    setPassword("");
+  }
+
+  if (checking) {
+    return (
+      <main className="flex flex-1 items-center justify-center p-4 text-zinc-500">
+        Loading…
       </main>
-    </div>
+    );
+  }
+
+  if (user) {
+    return (
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 p-4">
+        <h1 className="text-3xl font-bold text-red-800 dark:text-red-500">SoonerSwipe</h1>
+        <p className="text-lg">
+          Signed in as <span className="font-semibold">{user.email}</span>
+        </p>
+        <button
+          onClick={handleSignOut}
+          className="h-12 rounded-full border border-zinc-300 font-medium dark:border-zinc-700"
+        >
+          Sign out
+        </button>
+      </main>
+    );
+  }
+
+  const input =
+    "h-12 rounded-xl border border-zinc-300 bg-transparent px-4 text-base dark:border-zinc-700";
+
+  return (
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 p-4">
+      <div>
+        <h1 className="text-3xl font-bold text-red-800 dark:text-red-500">SoonerSwipe</h1>
+        <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+          Swipe on OU events. Share the ride.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 rounded-full bg-zinc-100 p-1 dark:bg-zinc-900">
+        {(["signin", "signup"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => {
+              setMode(m);
+              setError(null);
+              setNotice(null);
+            }}
+            className={`h-10 rounded-full font-medium ${
+              mode === m ? "bg-white shadow dark:bg-zinc-800" : "text-zinc-500"
+            }`}
+          >
+            {m === "signin" ? "Sign in" : "Sign up"}
+          </button>
+        ))}
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3" noValidate>
+        {mode === "signup" && (
+          <>
+            <input
+              className={input}
+              placeholder="Full name"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <select
+              className={input}
+              value={major}
+              onChange={(e) => setMajor(e.target.value)}
+              aria-label="Major"
+            >
+              {MAJORS.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+          </>
+        )}
+        <input
+          className={input}
+          type="email"
+          placeholder="you@ou.edu"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input
+          className={input}
+          type="password"
+          placeholder="Password"
+          autoComplete={mode === "signup" ? "new-password" : "current-password"}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        {error && (
+          <p role="alert" className="text-sm text-red-600">
+            {error}
+          </p>
+        )}
+        {notice && <p className="text-sm text-green-700">{notice}</p>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-2 h-12 rounded-full bg-red-800 font-semibold text-white disabled:opacity-60"
+        >
+          {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+        </button>
+      </form>
+    </main>
   );
 }
