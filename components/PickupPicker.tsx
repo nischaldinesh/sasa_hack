@@ -7,7 +7,15 @@ import { AREA_LABELS, PICKUP_POINTS, searchPickups, type PickupKey } from "@/lib
 // Looks like a text input; typing filters the preset pickup spots (campus,
 // student housing, around Norman), grouped by area.
 // Submits the chosen spot's key as `name`.
-export default function PickupPicker({ name, defaultValue }: { name: string; defaultValue: PickupKey | null }) {
+export default function PickupPicker({
+  name,
+  defaultValue,
+  placeholder = "e.g. Adams Hall, Campus Corner, Crimson Park",
+}: {
+  name: string;
+  defaultValue: PickupKey | null;
+  placeholder?: string;
+}) {
   const listId = useId();
   const [selected, setSelected] = useState<PickupKey | null>(defaultValue);
   const [query, setQuery] = useState(defaultValue ? PICKUP_POINTS[defaultValue].name : "");
@@ -32,7 +40,7 @@ export default function PickupPicker({ name, defaultValue }: { name: string; def
           aria-controls={listId}
           aria-autocomplete="list"
           aria-label="Pickup area"
-          placeholder="e.g. Adams Hall, Campus Corner, Crimson Park"
+          placeholder={placeholder}
           value={query}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 120)}

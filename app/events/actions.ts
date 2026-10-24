@@ -90,7 +90,9 @@ export async function joinEvent(_prev: ActionResult, formData: FormData): Promis
   const pickupKey = String(formData.get("pickup") ?? "");
 
   if (role !== "driver" && role !== "rider") return { error: "Choose I'm driving or I need a ride." };
-  if (!isPickupKey(pickupKey)) return { error: "Choose a pickup spot from the list." };
+  if (!isPickupKey(pickupKey)) {
+    return { error: role === "driver" ? "Choose your starting location from the list." : "Choose a pickup spot from the list." };
+  }
   const pickup = PICKUP_POINTS[pickupKey];
   const depart = parseChicagoInput(String(formData.get("depart") ?? ""));
   if (!depart) return { error: "Enter a departure time." };

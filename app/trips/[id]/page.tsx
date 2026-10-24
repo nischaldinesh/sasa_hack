@@ -11,7 +11,8 @@ import { getFriendStatuses, getTripDetail, type TripMember } from "@/lib/queries
 import { costBreakdown, formatUsd } from "@/lib/cost";
 import { shortMajor } from "@/lib/reasons";
 import { shortName } from "@/lib/names";
-import { arrivalEstimate, isDroppedOff, orderStops, shortCity } from "@/lib/trip";
+import { planRoute } from "@/lib/route";
+import { arrivalEstimate, isDroppedOff, shortCity } from "@/lib/trip";
 import { formatClock, formatLongDate } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Trip card" };
@@ -88,9 +89,14 @@ async function TripCard({ params }: { params: PageProps<"/trips/[id]">["params"]
   const { driver, riders, event } = trip;
   const crewmates = [driver, ...riders].filter((m) => m.id !== user.id);
   const statuses = await getFriendStatuses(supabase, user.id, crewmates.map((m) => m.id));
-  const stops = orderStops(
-    { name: driver.pickupPoint, lat: driver.pickupLat, lng: driver.pickupLng },
-    riders.map((r) => ({ name: r.pickupPoint, lat: r.pickupLat, lng: r.pickupLng })),
+  // Driver's start, then pickups in the order they come along the route to the event.
+  const start = driver.pickupLat != null && driver.pickupLng != null ? { lat: driver.pickupLat, lng: driver.pickupLng } : null;
+  const pickups = riders.flatMap((r) =>
+    r.pickupLat != null && r.pickupLng != null ? [{ name: r.pickupPoint, pickup: { lat: r.pickupLat, lng: r.pickupLng } }] : [],
+  );
+  const routeOrder = start ? planRoute(start, { lat: event.lat, lng: event.lng }, pickups).stops : pickups;
+  const stops = [driver.pickupPoint, ...routeOrder.map((p) => p.name)].filter(
+    (name, i, all): name is string => !!name && all.indexOf(name) === i,
   );
   const venue = [event.location, shortCity(event.city)].filter(Boolean).join(", ");
   const arrive = driver.departTime && trip.oneWayMiles != null ? arrivalEstimate(driver.departTime, trip.oneWayMiles) : null;

@@ -1,4 +1,5 @@
 import { haversineMiles } from "./geo";
+import { MAX_DETOUR_MILES, detourMiles, type Point } from "./route";
 import type { AttendanceRow, PersonCardData, PersonDeck, ProfileRow, TripRiderRow, TripRow } from "./types";
 
 export type DeckInput = {
@@ -10,6 +11,8 @@ export type DeckInput = {
   tripRiders: Pick<TripRiderRow, "trip_id" | "rider_id">[]; // riders for this event
   profiles: Map<string, ProfileRow>;
   ratings?: Map<string, { rating: number; reviews: number }>; // by driver id
+  event?: Point; // destination: riders only see drivers whose route passes their pickup
+  maxDetour?: number;
 };
 
 // Riders currently matched into each driver's car for one event.
@@ -25,8 +28,9 @@ export function ridersByDriver(input: Pick<DeckInput, "trips" | "tripRiders">): 
 
 // Person deck rules (AGENTS.md 6.3): going, opposite role, not me, not already
 // swiped, drivers with a free seat, riders not already in a car. A rider who is
-// already in a trip sees no deck. People who starred me come first, then by
-// distance between pickups.
+// already in a trip sees no deck. With `event` set, riders only see drivers
+// whose route (start -> event) passes their pickup within the max detour,
+// smallest detour first. People who starred me always come first.
 export function buildPersonDeck(input: DeckInput): PersonDeck {
   const { meId, attendance, swipedIds, trips, tripRiders, profiles } = input;
   const starredMe = input.starredMeIds ?? new Set<string>();
@@ -63,6 +67,14 @@ export function buildPersonDeck(input: DeckInput): PersonDeck {
       continue;
     }
 
+    // Route based: a driver's route runs from their start to the event. Show a
+    // rider only drivers whose route passes within the max detour.
+    let detour: number | null = null;
+    if (a.role === "driver" && input.event) {
+      detour = detourMiles({ lat: a.pickup_lat, lng: a.pickup_lng }, { lat: me.pickup_lat, lng: me.pickup_lng }, input.event);
+      if (detour > (input.maxDetour ?? MAX_DETOUR_MILES) + 1e-9) continue;
+    }
+
     const profile = profiles.get(a.user_id);
     people.push({
       userId: a.user_id,
@@ -75,6 +87,7 @@ export function buildPersonDeck(input: DeckInput): PersonDeck {
       role: a.role,
       pickupPoint: a.pickup_point,
       distanceMiles: haversineMiles(me.pickup_lat, me.pickup_lng, a.pickup_lat, a.pickup_lng),
+      detourMiles: detour,
       departTime: a.depart_time,
       seatsLeft,
       mpg: a.role === "driver" ? (profile?.mpg ?? null) : null,
@@ -85,9 +98,12 @@ export function buildPersonDeck(input: DeckInput): PersonDeck {
     });
   }
 
+  // Starred first, then the smallest detour (drivers) or nearest pickup.
   people.sort(
     (x, y) =>
-      Number(y.starredMe) - Number(x.starredMe) || x.distanceMiles - y.distanceMiles || x.name.localeCompare(y.name),
+      Number(y.starredMe) - Number(x.starredMe) ||
+      (x.detourMiles ?? x.distanceMiles) - (y.detourMiles ?? y.distanceMiles) ||
+      x.name.localeCompare(y.name),
   );
   return {
     status: "open",

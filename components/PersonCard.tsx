@@ -48,7 +48,12 @@ export default function PersonCard({ person }: { person: PersonCardData }) {
         </span>
         <Avatar name={person.name} size="xl" className="h-32 w-32 border-4 border-white shadow-lg" />
         <span className="absolute bottom-4 left-4 flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm font-bold text-green-600 shadow-sm">
-          <PinIcon /> {formatMiles(person.distanceMiles)} from your pickup
+          <PinIcon />{" "}
+          {person.detourMiles != null
+            ? person.detourMiles < 0.1
+              ? "Right on their route"
+              : `On their route · +${person.detourMiles.toFixed(1)} mi`
+            : `${formatMiles(person.distanceMiles)} from your pickup`}
         </span>
       </div>
 
@@ -122,6 +127,12 @@ export function PersonBackCard({ person }: { person: PersonCardData }) {
           <dd className="font-semibold">{person.pickupPoint ?? "—"}</dd>
           <dt className="text-zinc-400">Distance</dt>
           <dd className="font-semibold">{formatMiles(person.distanceMiles)} from your pickup</dd>
+          {person.detourMiles != null && (
+            <>
+              <dt className="text-zinc-400">Detour</dt>
+              <dd className="font-semibold">+{person.detourMiles.toFixed(1)} mi for them to pick you up</dd>
+            </>
+          )}
           <dt className="text-zinc-400">Leaves</dt>
           <dd className="font-semibold">{person.departTime ? formatEventTime(person.departTime) : "—"}</dd>
           {person.role === "driver" && (

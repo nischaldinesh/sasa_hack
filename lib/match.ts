@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { MAX_DETOUR_MILES, isOnRoute } from "./route";
 
 // Match flow for POST /api/swipe (AGENTS.md 6.4). Pass the service role
 // client: swipes, trips and trip_riders are only written on the server.
 
 // starred = super like: a right swipe that puts me first in their deck.
 export type SwipeBody = { toUser: string; eventId: string; direction: "left" | "right"; starred?: boolean };
-export type SwipeResult = { matched: false; full?: true } | { matched: true; tripId: string };
+export type SwipeResult = { matched: false; full?: true; offRoute?: true } | { matched: true; tripId: string };
 
 export class SwipeError extends Error {
   constructor(
@@ -37,6 +38,19 @@ function fail(label: string, error: { message: string }): never {
   throw new SwipeError(500, `${label}: ${error.message}`);
 }
 
+async function hasRightSwipe(admin: SupabaseClient, from: string, to: string, eventId: string): Promise<boolean> {
+  const { data, error } = await admin
+    .from("swipes")
+    .select("direction")
+    .eq("from_user", from)
+    .eq("to_user", to)
+    .eq("event_id", eventId)
+    .eq("direction", "right")
+    .maybeSingle();
+  if (error) fail("reciprocal", error);
+  return !!data;
+}
+
 export async function recordSwipe(admin: SupabaseClient, meId: string, body: SwipeBody): Promise<SwipeResult> {
   const { toUser, eventId, direction } = body;
   const starred = direction === "right" && body.starred === true;
@@ -44,7 +58,7 @@ export async function recordSwipe(admin: SupabaseClient, meId: string, body: Swi
 
   const { data: rows, error: attendanceError } = await admin
     .from("attendance")
-    .select("user_id, status, role, seats, split_gas")
+    .select("user_id, status, role, seats, split_gas, pickup_lat, pickup_lng")
     .eq("event_id", eventId)
     .in("user_id", [meId, toUser]);
   if (attendanceError) fail("attendance", attendanceError);
@@ -65,20 +79,27 @@ export async function recordSwipe(admin: SupabaseClient, meId: string, body: Swi
   // 3. Left swipes never match.
   if (direction === "left") return { matched: false };
 
-  // 4. Reciprocal right swipe?
-  const { data: reciprocal, error: reciprocalError } = await admin
-    .from("swipes")
-    .select("direction")
-    .eq("from_user", toUser)
-    .eq("to_user", meId)
-    .eq("event_id", eventId)
-    .eq("direction", "right")
-    .maybeSingle();
-  if (reciprocalError) fail("reciprocal", reciprocalError);
-  if (!reciprocal) return { matched: false };
-
-  // 5. One driver, one rider.
+  // 4. One driver, one rider.
   if (mine.role === theirs.role) return { matched: false };
+
+  // 5. Does the other side accept? Drivers accept automatically when the
+  //    rider's pickup is on their route (start -> event within the max
+  //    detour); otherwise a reciprocal right swipe is needed.
+  let accepted = false;
+  if (mine.role === "rider") {
+    const { data: event, error: eventError } = await admin.from("events").select("lat, lng").eq("id", eventId).single();
+    if (eventError) fail("event", eventError);
+    const start = theirs.pickup_lat != null && theirs.pickup_lng != null ? { lat: theirs.pickup_lat, lng: theirs.pickup_lng } : null;
+    const pickup = mine.pickup_lat != null && mine.pickup_lng != null ? { lat: mine.pickup_lat, lng: mine.pickup_lng } : null;
+    if (start && pickup && isOnRoute(start, pickup, { lat: event.lat, lng: event.lng }, MAX_DETOUR_MILES)) accepted = true;
+    else if (start && pickup) {
+      const reciprocal = await hasRightSwipe(admin, toUser, meId, eventId);
+      if (!reciprocal) return { matched: false, offRoute: true };
+      accepted = true;
+    }
+  }
+  if (!accepted) accepted = await hasRightSwipe(admin, toUser, meId, eventId);
+  if (!accepted) return { matched: false };
   const [driver, riderId] = mine.role === "driver" ? [mine, toUser] : [theirs, meId];
   const seats = driver.seats ?? 0;
 

@@ -86,6 +86,7 @@ export type PersonCardData = {
   role: Role;
   pickupPoint: string | null;
   distanceMiles: number;
+  detourMiles: number | null; // drivers: extra miles to pick me up on their route
   departTime: string | null;
   seatsLeft: number | null; // drivers only
   mpg: number | null; // drivers only

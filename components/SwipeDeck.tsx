@@ -263,6 +263,8 @@ function TopCard<T>({
   async function fly(direction: SwipeDirection) {
     if (flying.current) return;
     flying.current = true;
+    // A real swipe ends the tutorial; starting this animation replaces the demo's.
+    if (demo) onDemoStop();
     if (direction === "up") await animate(y, -900, { duration: 0.3 });
     else await animate(x, direction === "right" ? 650 : -650, { duration: 0.25 });
     onSwipe(item, direction);
@@ -320,7 +322,8 @@ function TopCard<T>({
     })();
     return () => {
       cancelled = true;
-      x.stop();
+      // Stop the demo's motion, but never a real swipe that is flying the card away.
+      if (!flying.current) x.stop();
       setPressing(false);
     };
     // onPhase, onDemoStop and renderBack are stable for the life of this card.

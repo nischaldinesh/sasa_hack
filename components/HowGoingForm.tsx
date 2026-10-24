@@ -106,11 +106,22 @@ export default function HowGoingForm({ eventId, joined, locked, verified, driver
     startLeaving(async () => setLeaveResult(await leaveEvent(eventId)));
   }
 
-  const pickupAndTime = (
+  // Drivers enter where their route starts (the event is the destination);
+  // riders enter where they want to be picked up.
+  const placeAndTime = (forRole: Role) => (
     <>
       <div className="flex flex-col gap-2">
-        <span className={label}>Pickup area</span>
-        <PickupPicker name="pickup" defaultValue={initial.pickup} />
+        <span className={label}>{forRole === "driver" ? "Starting location" : "Pickup area"}</span>
+        <PickupPicker
+          name="pickup"
+          defaultValue={initial.pickup}
+          placeholder={forRole === "driver" ? "Where you'll leave from" : "e.g. Adams Hall, Campus Corner, Crimson Park"}
+        />
+        {forRole === "driver" && (
+          <span className="text-sm text-zinc-500">
+            Your route runs from here to the event. We&apos;ll match riders whose pickup is on the way.
+          </span>
+        )}
       </div>
       <label className="flex flex-col gap-2">
         <span className={label}>Departure time (Central)</span>
@@ -196,7 +207,7 @@ export default function HowGoingForm({ eventId, joined, locked, verified, driver
               </span>
             </label>
           </div>
-          {pickupAndTime}
+          {placeAndTime("driver")}
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl bg-zinc-100 p-4">
             <span>
               <span className="block font-bold">Split gas cost</span>
@@ -224,7 +235,7 @@ export default function HowGoingForm({ eventId, joined, locked, verified, driver
           title="I need a ride"
           subtitle="Find drivers going your way"
         >
-          {pickupAndTime}
+          {placeAndTime("rider")}
         </RoleCard>
       </div>
 

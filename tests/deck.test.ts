@@ -148,6 +148,43 @@ describe("buildPersonDeck", () => {
   });
 });
 
+describe("route based rider deck", () => {
+  const OKC = { lat: 35.466, lng: -97.5135 };
+  const CRIMSON_PARK = { lat: 35.1938, lng: -97.4398 };
+
+  it("shows a rider only drivers whose route passes their pickup, smallest detour first", () => {
+    const deck = buildPersonDeck({
+      ...base,
+      meId: "me",
+      event: OKC,
+      maxDetour: 2,
+      attendance: [
+        going("me", "rider", BIZZELL),
+        going("d1", "driver", UNION), // Union -> OKC passes right by Bizzell
+        going("d2", "driver", HEADINGTON), // a little further back
+        going("d3", "driver", CRIMSON_PARK), // starts south; Bizzell is on its way north
+      ],
+    });
+    expect(deck.people.map((p) => p.userId)).toContain("d1");
+    expect(deck.people.every((p) => p.detourMiles !== null && p.detourMiles <= 2)).toBe(true);
+    const sorted = [...deck.people].sort((a, b) => a.detourMiles! - b.detourMiles!);
+    expect(deck.people.map((p) => p.userId)).toEqual(sorted.map((p) => p.userId));
+  });
+
+  it("hides drivers that would need a big detour", () => {
+    const deck = buildPersonDeck({
+      ...base,
+      meId: "me",
+      event: OKC,
+      maxDetour: 2,
+      // Rider at Crimson Park, south; a driver starting north at the Union heading to OKC
+      // would have to drive back south ~2.3 mi.
+      attendance: [going("me", "rider", CRIMSON_PARK), going("d1", "driver", UNION)],
+    });
+    expect(deck.people).toEqual([]);
+  });
+});
+
 describe("formatMiles", () => {
   it("formats to one decimal", () => {
     expect(formatMiles(1.234)).toBe("1.2 mi");

@@ -1,19 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SwipeDeck, { type SwipeDirection } from "@/components/SwipeDeck";
 import PersonCard, { PersonBackCard } from "@/components/PersonCard";
-import MatchScreen, { type Match } from "@/components/MatchScreen";
+import MatchScreen from "@/components/MatchScreen";
+import { useMatchPolling } from "@/components/useMatchPolling";
 import BackButton from "@/components/BackButton";
-import type { TripDetail } from "@/lib/queries";
 import type { Partner, PersonCardData, PersonDeck as Deck } from "@/lib/types";
 
-const POLL_MS = 3000;
-
-type SwipeResponse = { matched?: boolean; tripId?: string; full?: boolean; error?: string };
-type MatchStatus = { tripId: string | null; partners: Partner[]; trip: TripDetail | null };
+type SwipeResponse = { matched?: boolean; tripId?: string; full?: boolean; offRoute?: boolean; error?: string };
 
 export default function PeopleDeck({
   meId,
@@ -29,43 +26,13 @@ export default function PeopleDeck({
   initialPartners: Partner[];
 }) {
   const router = useRouter();
-  const [match, setMatch] = useState<Match | null>(null);
+  const { match, setMatch, checkMatches } = useMatchPolling(eventId, initialPartners);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Clear the match screen and notices when this page is hidden (Next keeps
-  // it alive), so coming back later doesn't show a stale "You're Connected!".
-  useLayoutEffect(
-    () => () => {
-      setMatch(null);
-      setNotice(null);
-    },
-    [],
-  );
-  const seen = useRef(new Set(initialPartners.map((p) => p.id)));
+  // Clear notices when this page is hidden (Next keeps it alive).
+  useLayoutEffect(() => () => setNotice(null), []);
   const lookingFor = deck.myRole === "driver" ? "riders" : "drivers";
   const count = deck.people.length;
-
-  // Shows "You're Connected!" for partners I haven't seen yet. Used after my
-  // own matching swipe and by the poll that catches the other person's swipe.
-  const checkMatches = useCallback(async () => {
-    const res = await fetch(`/api/match?eventId=${eventId}`, { cache: "no-store" });
-    if (!res.ok) return;
-    const data = (await res.json()) as MatchStatus;
-    const fresh = data.partners.filter((p) => !seen.current.has(p.id));
-    if (!data.trip || fresh.length === 0) return;
-    fresh.forEach((p) => seen.current.add(p.id));
-    setMatch({ trip: data.trip, partnerIds: fresh.map((p) => p.id) });
-    router.refresh();
-  }, [eventId, router]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      checkMatches().catch(() => {
-        // Offline or a transient error: try again on the next tick.
-      });
-    }, POLL_MS);
-    return () => clearInterval(timer);
-  }, [checkMatches]);
 
   async function swipe(person: PersonCardData, direction: SwipeDirection) {
     setNotice(null);
@@ -89,6 +56,8 @@ export default function PeopleDeck({
       else if (data.full) {
         setNotice(`${person.name.split(" ")[0]}'s car just filled up.`);
         router.refresh();
+      } else if (data.offRoute) {
+        setNotice(`${person.name.split(" ")[0]}'s route doesn't pass close enough to your pickup.`);
       } else if (direction === "up") {
         setNotice(`⭐ Starred ${person.name.split(" ")[0]}. You'll be first in their deck.`);
       }

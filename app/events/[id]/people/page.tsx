@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import DriverRouteView from "@/components/DriverRouteView";
 import PeopleDeck from "@/components/PeopleDeck";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { getPartners, getPersonDeck } from "@/lib/queries";
+import { getDriverRoute, getPartners, getPersonDeck } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Find your ride" };
 
@@ -38,6 +39,13 @@ async function People({ params }: { params: PageProps<"/events/[id]/people">["pa
   if (error) throw new Error(error.message);
   if (!event) notFound();
   if (deck.status === "not-going") redirect(`/events/${id}`);
+
+  // Drivers don't swipe: they see the riders matched to their route.
+  if (deck.myRole === "driver") {
+    const route = await getDriverRoute(supabase, user.id, id, createAdminClient());
+    if (!route) redirect(`/events/${id}`);
+    return <DriverRouteView meId={user.id} eventId={event.id} route={route} initialPartners={partners} />;
+  }
 
   return <PeopleDeck meId={user.id} eventId={event.id} eventTitle={event.title} deck={deck} initialPartners={partners} />;
 }

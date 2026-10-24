@@ -3,6 +3,7 @@ import { buildPersonDeck } from "./deck";
 import { buildEventSummaries } from "./events";
 import { haversineMiles, roundTripMiles } from "./geo";
 import type { RideOffer } from "./rides";
+import { MAX_DETOUR_MILES, planRoute, rankRouteRiders, type Point } from "./route";
 import type {
   AttendanceRow,
   EventRow,
@@ -104,7 +105,7 @@ export async function getPersonDeck(
   eventId: string,
   starReader: SupabaseClient = supabase,
 ): Promise<PersonDeck> {
-  const [attendance, swipes, trips, tripRiders, stars, ratingsRes] = await Promise.all([
+  const [attendance, swipes, trips, tripRiders, stars, ratingsRes, eventRes] = await Promise.all([
     supabase.from("attendance").select("*").eq("event_id", eventId),
     supabase.from("swipes").select("to_user").eq("from_user", userId).eq("event_id", eventId),
     supabase.from("trips").select("id, driver_id").eq("event_id", eventId),
@@ -117,8 +118,10 @@ export async function getPersonDeck(
       .eq("direction", "right")
       .eq("starred", true),
     supabase.from("driver_ratings").select("driver_id, rating, reviews"),
+    supabase.from("events").select("lat, lng").eq("id", eventId).maybeSingle(),
   ]);
   const rows = must(attendance) as AttendanceRow[];
+  const event = must(eventRes) as { lat: number; lng: number } | null;
   const ratings = new Map(
     (must(ratingsRes) as { driver_id: string; rating: number; reviews: number }[]).map((r) => [
       r.driver_id,
@@ -136,6 +139,7 @@ export async function getPersonDeck(
     swipedIds: new Set((must(swipes) as { to_user: string }[]).map((s) => s.to_user)),
     starredMeIds: new Set((must(stars) as { from_user: string }[]).map((s) => s.from_user)),
     ratings,
+    event: event ?? undefined,
     trips: must(trips) as Pick<TripRow, "id" | "driver_id">[],
     tripRiders: must(tripRiders) as Pick<TripRiderRow, "trip_id" | "rider_id">[],
     profiles,
@@ -616,4 +620,118 @@ export async function getRecentReviews(supabase: SupabaseClient, limit = 8): Pro
     comment: r.comment,
     createdAt: r.created_at,
   }));
+}
+
+export type RouteRider = {
+  id: string;
+  name: string;
+  major: string | null;
+  year: string | null;
+  bio: string | null;
+  pickupPoint: string | null;
+  pickup: Point;
+  detourMiles: number;
+  detourMinutes: number;
+  progress: number;
+  status: "in-car" | "suggested";
+};
+
+export type DriverRoute = {
+  start: { name: string | null } & Point;
+  event: { title: string; location: string; city: string | null } & Point;
+  departTime: string | null;
+  seats: number;
+  seatsLeft: number;
+  maxDetour: number;
+  tripId: string | null;
+  inCar: RouteRider[]; // riders already in the car, in pickup order
+  suggested: RouteRider[]; // riders on the route, smallest detour first
+  route: { stops: string[]; totalMiles: number; extraMiles: number; extraMinutes: number }; // with riders in the car
+  bestFit: { stops: string[]; totalMiles: number; extraMiles: number; extraMinutes: number }; // if the top suggestions join
+};
+
+// A driver's route (start -> event) and the riders it can pick up: riders in
+// the car plus riders not in any car whose pickup adds at most the max detour.
+// Riders who passed on this driver are left out (read with `swipeReader`, a
+// service role client, since RLS hides other people's swipes).
+export async function getDriverRoute(
+  supabase: SupabaseClient,
+  userId: string,
+  eventId: string,
+  swipeReader: SupabaseClient = supabase,
+): Promise<DriverRoute | null> {
+  const [eventRes, attendanceRes, tripsRes, ridersRes, declinedRes] = await Promise.all([
+    supabase.from("events").select("title, location, city, lat, lng").eq("id", eventId).maybeSingle(),
+    supabase.from("attendance").select("*").eq("event_id", eventId).eq("status", "going"),
+    supabase.from("trips").select("id, driver_id").eq("event_id", eventId),
+    supabase.from("trip_riders").select("trip_id, rider_id").eq("event_id", eventId),
+    swipeReader.from("swipes").select("from_user").eq("to_user", userId).eq("event_id", eventId).eq("direction", "left"),
+  ]);
+  const event = must(eventRes) as ({ title: string; location: string; city: string | null } & Point) | null;
+  const rows = must(attendanceRes) as AttendanceRow[];
+  const me = rows.find((a) => a.user_id === userId);
+  if (!event || me?.role !== "driver" || me.pickup_lat == null || me.pickup_lng == null) return null;
+
+  const trips = must(tripsRes) as { id: string; driver_id: string }[];
+  const tripRiders = must(ridersRes) as { trip_id: string; rider_id: string }[];
+  const myTripId = trips.find((t) => t.driver_id === userId)?.id ?? null;
+  const inAnyCar = new Set(tripRiders.map((r) => r.rider_id));
+  const inMyCar = new Set(tripRiders.filter((r) => r.trip_id === myTripId).map((r) => r.rider_id));
+  const declined = new Set((must(declinedRes) as { from_user: string }[]).map((s) => s.from_user));
+
+  const riders = rows.filter(
+    (a) => a.role === "rider" && a.user_id !== userId && a.pickup_lat != null && a.pickup_lng != null,
+  );
+  const profiles = await getProfiles(supabase, riders.map((r) => r.user_id));
+  const toRider = (a: AttendanceRow) => {
+    const p = profiles.get(a.user_id);
+    return {
+      id: a.user_id,
+      name: p?.name ?? "Sooner",
+      major: p?.major ?? null,
+      year: p?.year ?? null,
+      bio: p?.bio ?? null,
+      pickupPoint: a.pickup_point,
+      pickup: { lat: a.pickup_lat!, lng: a.pickup_lng! },
+    };
+  };
+
+  const start = { name: me.pickup_point, lat: me.pickup_lat, lng: me.pickup_lng };
+  const end = { lat: event.lat, lng: event.lng };
+  // Riders in my car are listed even if their detour is large (they joined).
+  const inCar = rankRouteRiders(start, end, riders.filter((a) => inMyCar.has(a.user_id)).map(toRider), Number.POSITIVE_INFINITY).map(
+    (r) => ({ ...r, status: "in-car" as const }),
+  );
+  const suggested = rankRouteRiders(
+    start,
+    end,
+    riders.filter((a) => !inAnyCar.has(a.user_id) && !declined.has(a.user_id)).map(toRider),
+    MAX_DETOUR_MILES,
+  ).map((r) => ({ ...r, status: "suggested" as const }));
+
+  const seats = me.seats ?? 0;
+  const seatsLeft = Math.max(0, seats - inCar.length);
+  const summarize = (stops: RouteRider[]) => {
+    const plan = planRoute(start, end, stops);
+    return {
+      stops: plan.stops.map((s) => s.pickupPoint ?? s.name),
+      totalMiles: plan.totalMiles,
+      extraMiles: plan.extraMiles,
+      extraMinutes: plan.extraMinutes,
+    };
+  };
+  const route = summarize(inCar);
+  return {
+    start,
+    event,
+    departTime: me.depart_time,
+    seats,
+    seatsLeft,
+    maxDetour: MAX_DETOUR_MILES,
+    tripId: myTripId,
+    inCar: planRoute(start, end, inCar).stops,
+    suggested,
+    route,
+    bestFit: summarize([...inCar, ...suggested.slice(0, seatsLeft)]),
+  };
 }
