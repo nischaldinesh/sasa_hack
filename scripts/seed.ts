@@ -348,7 +348,12 @@ async function seedAttendance(users: Map<string, string>, events: Map<string, st
   });
 
   for (let i = 0; i < rows.length; i += 100) {
-    check("insert attendance", await supabase.from("attendance").insert(rows.slice(i, i + 100)));
+    // Rows differ in shape (interested rows have no ride fields); defaultToNull: false
+    // lets missing columns take their defaults (e.g. split_gas) instead of null.
+    check(
+      "insert attendance",
+      await supabase.from("attendance").insert(rows.slice(i, i + 100), { defaultToNull: false }),
+    );
   }
 }
 
