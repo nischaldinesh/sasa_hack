@@ -23,7 +23,7 @@ if (!url || !serviceKey) {
 }
 
 const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
-const EVENT_TITLE = "OKC Tech & Engineering Career Fair";
+const EVENT_TITLE = "OU Career Fair — OKC";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail?: unknown) {

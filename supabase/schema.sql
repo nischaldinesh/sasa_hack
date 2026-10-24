@@ -122,3 +122,4 @@ create policy "own skips" on event_skips for all to authenticated
 
 -- Auth guard: also run supabase/auth_trigger.sql to reject non @ou.edu
 -- emails in auth.users itself.
+-- Then run supabase/m4.sql for the M4 columns, event_skips and the seat trigger.

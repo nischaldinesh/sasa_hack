@@ -6,6 +6,8 @@ Instructions for any coding agent (or teammate) building this project. Read this
 
 SoonerSwipe is a mobile first web app for University of Oklahoma students. Students swipe on events, then swipe on other students going to the same event along a similar route. A mutual right swipe creates a shared ride. After the trip, matches can become friends, and the app recommends future events. Gas cost splitting is optional and only suggested, never charged.
 
+UI source of truth: images in docs/ and docs/UI_SPEC.md
+
 Built for SASE Hacks for Good (8 hour hackathon). Demo first: a working core loop beats extra features.
 
 ### Core loop (must work in the demo)

@@ -1,9 +1,10 @@
-// Seeds demo users, events, attendance and one friendship.
-// Safe to run repeatedly: users are reused, demo rows are deleted and re-inserted.
+// Seeds demo users, crowd users, events, attendance and friendships.
+// Requires supabase/schema.sql and supabase/m4.sql.
+// Safe to run repeatedly: users are reused, seeded rows are deleted and re-inserted.
 // Usage: npm run seed
 import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import { PICKUP_POINTS as PICKUPS, type PickupKey } from "../lib/places";
+import { PICKUP_POINTS, type PickupKey } from "../lib/places";
 import { chicagoToUtc, chicagoToday } from "../lib/time";
 
 config({ path: ".env.local", quiet: true });
@@ -20,93 +21,175 @@ const supabase = createClient(url, serviceKey, {
 });
 
 const PASSWORD = "demo1234";
+const DAY = 24 * 60 * 60 * 1000;
 
-type DemoUser = {
+type SeedUser = {
   email: string;
   name: string;
   major: string;
+  year: string;
   mpg: number | null;
+  carModel: string | null;
+  bio: string | null;
+  orgs: string[];
   interests: string[];
 };
 
-const USERS: DemoUser[] = [
-  { email: "driver1@ou.edu", name: "Jordan Lee", major: "Computer Science", mpg: 30, interests: ["career", "tech", "sports"] },
-  { email: "driver2@ou.edu", name: "Priya Patel", major: "Engineering", mpg: 25, interests: ["career", "culture"] },
-  { email: "rider1@ou.edu", name: "Maria Gonzalez", major: "Computer Science", mpg: null, interests: ["career", "culture", "music"] },
-  { email: "rider2@ou.edu", name: "Kenji Tanaka", major: "Computer Science", mpg: null, interests: ["tech", "sports"] },
-  { email: "rider3@ou.edu", name: "Aisha Okafor", major: "Business", mpg: null, interests: ["career", "music"] },
-  { email: "rider4@ou.edu", name: "Ethan Brooks", major: "Biology", mpg: null, interests: ["sports", "culture"] },
+// The 6 demo accounts (password demo1234).
+const DEMO: SeedUser[] = [
+  { email: "driver1@ou.edu", name: "Jai Shah", major: "Computer Science", year: "Senior", mpg: 32, carModel: "2019 Honda Civic", bio: "Driving to OKC most Fridays. Happy to share the ride and the playlist.", orgs: ["SASE"], interests: ["career", "tech", "sports"] },
+  { email: "driver2@ou.edu", name: "Emily Nguyen", major: "Industrial Engineering", year: "Junior", mpg: 30, carModel: "2017 Toyota Corolla", bio: "Early riser, always on time. Coffee stop on the way is non negotiable.", orgs: ["SWE", "SASE"], interests: ["career", "culture"] },
+  { email: "rider1@ou.edu", name: "Maria Gonzalez", major: "Business", year: "Sophomore", mpg: null, carModel: null, bio: "International student, no car yet. I'll bring snacks!", orgs: ["International Student Union"], interests: ["career", "culture", "music"] },
+  { email: "rider2@ou.edu", name: "Priya Krishnamurthy", major: "Computer Science", year: "Junior", mpg: null, carModel: null, bio: "Super nervous about this career fair — would love to carpool and practice elevator pitches on the way!", orgs: ["Moksha '26", "SASE"], interests: ["tech", "sports"] },
+  { email: "rider3@ou.edu", name: "Arun Ramaswamy", major: "Electrical & Computer Engineering", year: "Sophomore", mpg: null, carModel: null, bio: "Building robots by day. Looking for rides to tech events.", orgs: ["IEEE", "SASE"], interests: ["career", "music"] },
+  { email: "rider4@ou.edu", name: "Ethan Brooks", major: "Biology", year: "Freshman", mpg: null, carModel: null, bio: "Pre-med, first semester at OU. Want to meet people outside the lab.", orgs: ["Pre-Med Society"], interests: ["sports", "culture"] },
 ];
+
+const CROWD_NAMES = [
+  "Aiden Clark", "Sofia Ramirez", "Noah Patel", "Hannah Kim", "Lucas Martinez", "Grace Okafor", "Mateo Hernandez", "Chloe Nguyen",
+  "Ryan Thompson", "Ananya Iyer", "Caleb Johnson", "Isabella Rossi", "Daniel Park", "Fatima Hassan", "Owen Mitchell", "Mei Lin",
+  "Jacob Wilson", "Aaliyah Brown", "Ethan Chen", "Zara Ahmed", "Logan Davis", "Riya Mehta", "Samuel Lee", "Olivia Garcia",
+  "Benjamin Wright", "Ava Robinson", "Elijah Scott", "Nadia Ali", "Henry Lopez", "Emma Walker", "Diego Torres", "Lily Anderson",
+  "Arjun Reddy", "Madison Hall", "Kevin Tran", "Sara Haddad", "Tyler Young", "Leah Cohen", "Marcus Bell", "Yuki Tanaka",
+];
+const MAJORS = [
+  "Computer Science", "Mechanical Engineering", "Business", "Biology", "Petroleum Engineering",
+  "Psychology", "Electrical & Computer Engineering", "Finance", "Chemical Engineering", "Journalism",
+];
+const YEARS = ["Freshman", "Sophomore", "Junior", "Senior", "Graduate"];
+const ORGS = ["SASE", "SHPE", "NSBE", "SWE", "ACM", "Indian Student Association", "Club Soccer", "Sooner Dance Marathon"];
+const CARS = ["2018 Toyota Camry", "2020 Honda Accord", "2016 Mazda 3", "2021 Hyundai Elantra", "2015 Ford Focus"];
+const BIOS = [
+  "Always down for a road trip playlist swap.",
+  "Looking to meet more people in my major.",
+  "Quiet rider, great at directions.",
+  "First time going, would love company!",
+  null,
+];
+
+const CROWD: SeedUser[] = CROWD_NAMES.map((name, i) => {
+  const driver = i % 6 === 0 || i % 7 === 0;
+  return {
+    email: `crowd${String(i + 1).padStart(2, "0")}@ou.edu`,
+    name,
+    major: MAJORS[i % MAJORS.length],
+    year: YEARS[i % YEARS.length],
+    mpg: driver ? 24 + (i % 4) * 3 : null,
+    carModel: driver ? CARS[i % CARS.length] : null,
+    bio: BIOS[i % BIOS.length],
+    orgs: i % 3 === 0 ? [ORGS[i % ORGS.length]] : i % 3 === 1 ? [ORGS[i % ORGS.length], ORGS[(i + 3) % ORGS.length]] : [],
+    interests: [],
+  };
+});
 
 // Placeholder events with real venue coordinates.
 // Replace with real upcoming OU events before the demo.
-type DemoEvent = {
+type SeedEvent = {
   key: string;
   title: string;
   organization: string;
   category: string;
   location: string;
+  city: string;
   lat: number;
   lng: number;
   daysFromNow: number;
-  hour: number; // wall clock hour in America/Chicago
+  start: [number, number]; // [hour, minute], America/Chicago
+  hours: number;
+  departBeforeMin: number; // drivers and riders leave this long before the start
   tags: string[];
+  registrationUrl: string | null;
 };
 
-const EVENTS: DemoEvent[] = [
-  { key: "career", title: "OKC Tech & Engineering Career Fair", organization: "OU Career Services", category: "Career", location: "Oklahoma City Convention Center, Oklahoma City", lat: 35.4634, lng: -97.5131, daysFromNow: 6, hour: 10, tags: ["Free entry", "Bring your resume"] },
-  { key: "watch", title: "OU Game Watch Party", organization: "Sooner Union Programming", category: "Sports", location: "Lloyd Noble Center, Norman", lat: 35.1868, lng: -97.4433, daysFromNow: 8, hour: 18, tags: ["Free food"] },
-  { key: "sase", title: "SASE Fall Social", organization: "SASE at OU", category: "Social", location: "Devon Energy Hall, Norman", lat: 35.2104, lng: -97.442, daysFromNow: 3, hour: 19, tags: ["Free food", "Networking"] },
-  { key: "tulsa", title: "Tulsa Tech Summit", organization: "Tulsa Regional Chamber", category: "Conference", location: "Cox Business Convention Center, Tulsa", lat: 36.1497, lng: -95.9931, daysFromNow: 13, hour: 9, tags: ["Student discount"] },
-  { key: "festival", title: "Norman International Cultural Festival", organization: "OU International Student Services", category: "Culture", location: "Andrews Park, Norman", lat: 35.2232, lng: -97.4447, daysFromNow: 10, hour: 12, tags: ["Family friendly", "Food trucks"] },
-  { key: "concert", title: "Fall Concert on the Oval", organization: "OU School of Music", category: "Music", location: "Catlett Music Center, Norman", lat: 35.2083, lng: -97.4469, daysFromNow: 17, hour: 20, tags: ["Outdoor"] },
+const EVENTS: SeedEvent[] = [
+  { key: "career", title: "OU Career Fair — OKC", organization: "OU Career Services & SASE", category: "Career", location: "Cox Convention Center", city: "Oklahoma City", lat: 35.466, lng: -97.5135, daysFromNow: 8, start: [9, 0], hours: 6, departBeforeMin: 45, tags: ["Bring your resume"], registrationUrl: "https://www.ou.edu/career" },
+  { key: "sasegm", title: "SASE General Meeting", organization: "SASE at OU", category: "Meeting", location: "Sarkeys Energy Center", city: "Norman", lat: 35.2099, lng: -97.4407, daysFromNow: 4, start: [18, 30], hours: 1.5, departBeforeMin: 15, tags: ["Free food"], registrationUrl: null },
+  { key: "diwali", title: "Diwali Night 2026", organization: "Indian Student Association", category: "Culture", location: "Traditions Square", city: "Norman", lat: 35.2063, lng: -97.442, daysFromNow: 12, start: [18, 0], hours: 4, departBeforeMin: 20, tags: ["Free food", "Dance performances"], registrationUrl: "https://www.ou.edu/studentlife" },
+  { key: "watch", title: "OU Game Watch Party", organization: "Sooner Union Programming", category: "Sports", location: "Lloyd Noble Center", city: "Norman", lat: 35.1868, lng: -97.4433, daysFromNow: 9, start: [18, 0], hours: 4, departBeforeMin: 30, tags: ["Free food"], registrationUrl: null },
+  { key: "social", title: "SASE Fall Social", organization: "SASE at OU", category: "Social", location: "Devon Energy Hall", city: "Norman", lat: 35.2104, lng: -97.442, daysFromNow: 3, start: [19, 0], hours: 2, departBeforeMin: 15, tags: ["Free food", "Networking"], registrationUrl: null },
+  { key: "tulsa", title: "Tulsa Tech Summit", organization: "Tulsa Regional Chamber", category: "Conference", location: "Cox Business Convention Center", city: "Tulsa", lat: 36.1497, lng: -95.9931, daysFromNow: 13, start: [9, 0], hours: 8, departBeforeMin: 150, tags: ["Student discount"], registrationUrl: "https://www.tulsachamber.com" },
+  { key: "festival", title: "Norman International Cultural Festival", organization: "OU International Student Services", category: "Culture", location: "Andrews Park", city: "Norman", lat: 35.2232, lng: -97.4447, daysFromNow: 10, start: [12, 0], hours: 5, departBeforeMin: 20, tags: ["Family friendly", "Food trucks"], registrationUrl: null },
+  { key: "concert", title: "Fall Concert on the Oval", organization: "OU School of Music", category: "Music", location: "Catlett Music Center", city: "Norman", lat: 35.2083, lng: -97.4469, daysFromNow: 17, start: [20, 0], hours: 2, departBeforeMin: 15, tags: ["Outdoor"], registrationUrl: null },
 ];
 
-type DemoAttendance =
-  | { user: string; event: string; status: "interested" }
-  | { user: string; event: string; status: "going"; role: "rider"; pickup: PickupKey; departHour: number }
-  | { user: string; event: string; status: "going"; role: "driver"; pickup: PickupKey; departHour: number; seats: number };
+// Titles from earlier seeds, deleted so reruns don't leave duplicates behind.
+const LEGACY_TITLES = ["OKC Tech & Engineering Career Fair"];
 
-// Popularity order by going: career (6) > watch (4) > sase (2) > tulsa (1) > festival (0) > concert (0).
-const ATTENDANCE: DemoAttendance[] = [
-  // Career fair: 2 drivers, 4 riders at real campus pickups.
-  { user: "driver1@ou.edu", event: "career", status: "going", role: "driver", pickup: "union", departHour: 9, seats: 3 },
-  { user: "driver2@ou.edu", event: "career", status: "going", role: "driver", pickup: "gaylord", departHour: 9, seats: 2 },
-  { user: "rider1@ou.edu", event: "career", status: "going", role: "rider", pickup: "bizzell", departHour: 9 },
-  { user: "rider2@ou.edu", event: "career", status: "going", role: "rider", pickup: "union", departHour: 9 },
-  { user: "rider3@ou.edu", event: "career", status: "going", role: "rider", pickup: "headington", departHour: 9 },
-  { user: "rider4@ou.edu", event: "career", status: "going", role: "rider", pickup: "gaylord", departHour: 9 },
-  // Watch party.
-  { user: "driver1@ou.edu", event: "watch", status: "going", role: "driver", pickup: "headington", departHour: 17, seats: 4 },
-  { user: "rider2@ou.edu", event: "watch", status: "going", role: "rider", pickup: "headington", departHour: 17 },
-  { user: "rider4@ou.edu", event: "watch", status: "going", role: "rider", pickup: "union", departHour: 17 },
-  { user: "rider3@ou.edu", event: "watch", status: "going", role: "rider", pickup: "bizzell", departHour: 17 },
-  { user: "driver2@ou.edu", event: "watch", status: "interested" },
-  // SASE social.
-  { user: "driver2@ou.edu", event: "sase", status: "going", role: "driver", pickup: "gaylord", departHour: 18, seats: 3 },
-  { user: "rider1@ou.edu", event: "sase", status: "going", role: "rider", pickup: "bizzell", departHour: 18 },
-  { user: "rider2@ou.edu", event: "sase", status: "interested" },
-  { user: "rider3@ou.edu", event: "sase", status: "interested" },
-  // Tulsa summit.
-  { user: "driver1@ou.edu", event: "tulsa", status: "going", role: "driver", pickup: "union", departHour: 6, seats: 3 },
-  { user: "rider1@ou.edu", event: "tulsa", status: "interested" },
-  { user: "rider2@ou.edu", event: "tulsa", status: "interested" },
-  { user: "driver2@ou.edu", event: "tulsa", status: "interested" },
-  // Cultural festival.
-  { user: "rider1@ou.edu", event: "festival", status: "interested" },
-  { user: "rider4@ou.edu", event: "festival", status: "interested" },
-  // Concert.
-  { user: "rider3@ou.edu", event: "concert", status: "interested" },
+type Going = { role: "driver" | "rider"; pickup: PickupKey; seats?: number };
+type SeedAttendance = {
+  email: string;
+  event: string;
+  status: "interested" | "going";
+  going?: Going;
+  daysAgo: number;
+};
+
+const ATTENDANCE: SeedAttendance[] = [];
+const going = (email: string, event: string, g: Going, daysAgo = 0) =>
+  ATTENDANCE.push({ email, event, status: "going", going: g, daysAgo });
+const interested = (email: string, event: string, daysAgo = 0) =>
+  ATTENDANCE.push({ email, event, status: "interested", daysAgo });
+
+// Demo accounts. Career fair: 2 drivers and 4 riders at real campus pickups.
+going("driver1@ou.edu", "career", { role: "driver", pickup: "union", seats: 3 });
+going("driver2@ou.edu", "career", { role: "driver", pickup: "gaylord", seats: 2 });
+going("rider1@ou.edu", "career", { role: "rider", pickup: "bizzell" });
+going("rider2@ou.edu", "career", { role: "rider", pickup: "adams" });
+going("rider3@ou.edu", "career", { role: "rider", pickup: "couch" });
+going("rider4@ou.edu", "career", { role: "rider", pickup: "headington" });
+going("driver1@ou.edu", "watch", { role: "driver", pickup: "headington", seats: 4 }, 2);
+going("rider2@ou.edu", "watch", { role: "rider", pickup: "headington" }, 2);
+going("rider4@ou.edu", "watch", { role: "rider", pickup: "union" }, 3);
+going("rider3@ou.edu", "watch", { role: "rider", pickup: "bizzell" }, 3);
+interested("driver2@ou.edu", "watch", 4);
+going("driver2@ou.edu", "social", { role: "driver", pickup: "gaylord", seats: 3 }, 5);
+going("rider1@ou.edu", "social", { role: "rider", pickup: "bizzell" }, 5);
+interested("rider2@ou.edu", "social", 6);
+interested("rider3@ou.edu", "social", 6);
+going("driver1@ou.edu", "tulsa", { role: "driver", pickup: "union", seats: 3 }, 8);
+interested("rider1@ou.edu", "tulsa", 8);
+interested("rider2@ou.edu", "tulsa", 9);
+interested("driver2@ou.edu", "tulsa", 9);
+interested("rider1@ou.edu", "festival", 10);
+interested("rider4@ou.edu", "festival", 10);
+interested("rider3@ou.edu", "concert", 11);
+
+// Crowd: spread so each sort (Most going, Trending, Open seats, Soonest) gives a clear order.
+const PICKUP_KEYS = Object.keys(PICKUP_POINTS) as PickupKey[];
+const crowdGoing = (i: number, event: string, daysAgo: number) => {
+  const u = CROWD[i];
+  const isDriver = u.mpg !== null;
+  going(u.email, event, { role: isDriver ? "driver" : "rider", pickup: PICKUP_KEYS[i % PICKUP_KEYS.length], seats: isDriver ? 2 + (i % 3) : undefined }, daysAgo);
+};
+for (let i = 0; i <= 23; i++) crowdGoing(i, "career", i < 14 ? i % 7 : 9 + (i % 6));
+for (let i = 24; i <= 31; i++) interested(CROWD[i].email, "career", i < 28 ? 1 : 10);
+for (let i = 10; i <= 35; i++) crowdGoing(i, "diwali", i <= 12 ? 1 : 10 + (i % 10));
+for (let i = 36; i <= 39; i++) interested(CROWD[i].email, "diwali", 12);
+for (const i of [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 0, 1]) crowdGoing(i, "sasegm", i >= 32 ? i % 5 : 9);
+for (let i = 2; i <= 5; i++) interested(CROWD[i].email, "sasegm", 2);
+for (let i = 20; i <= 25; i++) crowdGoing(i, "watch", 8 + (i % 4));
+for (const i of [26, 27]) interested(CROWD[i].email, "watch", 8);
+for (let i = 2; i <= 4; i++) crowdGoing(i, "social", 9);
+for (const i of [5, 7, 9]) crowdGoing(i, "tulsa", 10);
+for (let i = 11; i <= 13; i++) interested(CROWD[i].email, "tulsa", 10);
+for (const i of [14, 15]) crowdGoing(i, "festival", 11);
+for (let i = 16; i <= 19; i++) interested(CROWD[i].email, "festival", 11);
+crowdGoing(37, "concert", 12);
+for (let i = 6; i <= 9; i++) interested(CROWD[i].email, "concert", 12);
+
+// rider1 and rider2 are friends ("1 friend is going"); driver1 has 3 friends going to the career fair.
+const FRIENDSHIPS: [string, string][] = [
+  ["rider1@ou.edu", "rider2@ou.edu"],
+  ["driver1@ou.edu", CROWD[1].email],
+  ["driver1@ou.edu", CROWD[2].email],
+  ["driver1@ou.edu", CROWD[7].email],
 ];
-
-// rider1 and rider2 are friends, so rider1 sees "1 friend is going" on the career fair.
-const FRIENDSHIPS: [string, string][] = [["rider1@ou.edu", "rider2@ou.edu"]];
 
 // Wall clock time in America/Chicago, daysFromNow days after today in Chicago.
 // Uses the correct UTC offset on each date, so events after Nov 1 are in CST.
-function eventTime(daysFromNow: number, localHour: number): string {
+function eventTime(daysFromNow: number, hour: number, minute = 0): Date {
   const today = chicagoToday();
-  return chicagoToUtc(today.year, today.month, today.day + daysFromNow, localHour).toISOString();
+  return chicagoToUtc(today.year, today.month, today.day + daysFromNow, hour, minute);
 }
 
 function check<T>(label: string, result: { data: T | null; error: { message: string } | null }): T {
@@ -128,18 +211,20 @@ async function findUsersByEmail(): Promise<Map<string, string>> {
 async function seedUsers(): Promise<Map<string, string>> {
   const existing = await findUsersByEmail();
   const ids = new Map<string, string>();
+  const demoEmails = new Set(DEMO.map((u) => u.email));
 
-  for (const u of USERS) {
+  for (const u of [...DEMO, ...CROWD]) {
     const meta = { name: u.name, major: u.major };
     let id = existing.get(u.email);
-    if (id) {
+    if (id && demoEmails.has(u.email)) {
+      // Reset demo passwords in case they were changed during a demo.
       const { error } = await supabase.auth.admin.updateUserById(id, {
         password: PASSWORD,
         email_confirm: true,
         user_metadata: meta,
       });
       if (error) throw new Error(`update ${u.email}: ${error.message}`);
-    } else {
+    } else if (!id) {
       const { data, error } = await supabase.auth.admin.createUser({
         email: u.email,
         password: PASSWORD,
@@ -155,13 +240,18 @@ async function seedUsers(): Promise<Map<string, string>> {
   check(
     "upsert profiles",
     await supabase.from("profiles").upsert(
-      USERS.map((u) => ({
+      [...DEMO, ...CROWD].map((u) => ({
         id: ids.get(u.email)!,
         email: u.email,
         name: u.name,
         major: u.major,
+        year: u.year,
         mpg: u.mpg,
+        car_model: u.carModel,
+        bio: u.bio,
+        orgs: u.orgs,
         interests: u.interests,
+        matches_seen_at: new Date().toISOString(),
       })),
     ),
   );
@@ -170,10 +260,10 @@ async function seedUsers(): Promise<Map<string, string>> {
 }
 
 async function seedEvents(): Promise<Map<string, string>> {
-  // Deleting demo events cascades to their attendance, swipes, trips and trip riders.
+  // Deleting seeded events cascades to their attendance, swipes, trips and trip riders.
   check(
-    "delete demo events",
-    await supabase.from("events").delete().in("title", EVENTS.map((e) => e.title)),
+    "delete seeded events",
+    await supabase.from("events").delete().in("title", [...EVENTS.map((e) => e.title), ...LEGACY_TITLES]),
   );
 
   const rows = check(
@@ -181,19 +271,26 @@ async function seedEvents(): Promise<Map<string, string>> {
     await supabase
       .from("events")
       .insert(
-        EVENTS.map((e) => ({
-          title: e.title,
-          organization: e.organization,
-          category: e.category,
-          location: e.location,
-          lat: e.lat,
-          lng: e.lng,
-          start_time: eventTime(e.daysFromNow, e.hour),
-          tags: e.tags,
-        })),
+        EVENTS.map((e) => {
+          const start = eventTime(e.daysFromNow, e.start[0], e.start[1]);
+          return {
+            title: e.title,
+            organization: e.organization,
+            category: e.category,
+            location: e.location,
+            city: e.city,
+            lat: e.lat,
+            lng: e.lng,
+            start_time: start.toISOString(),
+            end_time: new Date(start.getTime() + e.hours * 60 * 60 * 1000).toISOString(),
+            tags: e.tags,
+            requires_registration: e.registrationUrl !== null,
+            registration_url: e.registrationUrl,
+          };
+        }),
       )
       .select("id, title"),
-  );
+  ) as { id: string; title: string }[];
 
   const ids = new Map<string, string>();
   for (const e of EVENTS) {
@@ -204,43 +301,58 @@ async function seedEvents(): Promise<Map<string, string>> {
   return ids;
 }
 
-async function seedAttendance(users: Map<string, string>, events: Map<string, string>) {
-  const userIds = [...users.values()];
-  // Clear demo users' rows on any other events (e.g. joined during a demo run).
-  check("delete demo attendance", await supabase.from("attendance").delete().in("user_id", userIds));
-  check("delete demo swipes", await supabase.from("swipes").delete().in("from_user", userIds));
-  check("delete swipes on demo users", await supabase.from("swipes").delete().in("to_user", userIds));
-  check("delete demo trips", await supabase.from("trips").delete().in("driver_id", userIds));
-  check("delete demo trip riders", await supabase.from("trip_riders").delete().in("rider_id", userIds));
-  // event_skips exists once supabase/m3.sql has been run.
-  const skips = await supabase.from("event_skips").delete().in("user_id", userIds);
-  if (skips.error && skips.error.code !== "PGRST205") throw new Error(`delete demo skips: ${skips.error.message}`);
+async function clearUserRows(userIds: string[]) {
+  // Clear seeded users' rows on any other events (e.g. joined during a demo run).
+  for (const [table, column] of [
+    ["attendance", "user_id"],
+    ["swipes", "from_user"],
+    ["swipes", "to_user"],
+    ["trips", "driver_id"],
+    ["trip_riders", "rider_id"],
+    ["event_skips", "user_id"],
+    ["friends", "user_a"],
+    ["friends", "user_b"],
+  ] as const) {
+    check(`delete ${table}.${column}`, await supabase.from(table).delete().in(column, userIds));
+  }
+}
 
+async function seedAttendance(users: Map<string, string>, events: Map<string, string>) {
   const byKey = new Map(EVENTS.map((e) => [e.key, e]));
-  const rows = ATTENDANCE.map((a) => {
-    const base = { user_id: users.get(a.user)!, event_id: events.get(a.event)!, status: a.status };
-    if (a.status === "interested") return base;
+  const now = Date.now();
+
+  const rows = ATTENDANCE.map((a, n) => {
     const ev = byKey.get(a.event)!;
-    const pickup = PICKUPS[a.pickup];
+    // Spread join times by a minute each so ordering is stable.
+    const joinedAt = new Date(now - a.daysAgo * DAY - n * 60 * 1000).toISOString();
+    const base = {
+      user_id: users.get(a.email)!,
+      event_id: events.get(a.event)!,
+      status: a.status,
+      joined_at: joinedAt,
+      registered: a.status === "going" && ev.registrationUrl !== null,
+    };
+    if (!a.going) return base;
+    const pickup = PICKUP_POINTS[a.going.pickup];
+    const start = eventTime(ev.daysFromNow, ev.start[0], ev.start[1]);
     return {
       ...base,
-      role: a.role,
+      role: a.going.role,
       pickup_point: pickup.name,
       pickup_lat: pickup.lat,
       pickup_lng: pickup.lng,
-      depart_time: eventTime(ev.daysFromNow, a.departHour),
-      seats: a.role === "driver" ? a.seats : null,
+      depart_time: new Date(start.getTime() - ev.departBeforeMin * 60 * 1000).toISOString(),
+      seats: a.going.role === "driver" ? a.going.seats : null,
+      split_gas: true,
     };
   });
 
-  check("insert attendance", await supabase.from("attendance").insert(rows));
+  for (let i = 0; i < rows.length; i += 100) {
+    check("insert attendance", await supabase.from("attendance").insert(rows.slice(i, i + 100)));
+  }
 }
 
 async function seedFriends(users: Map<string, string>) {
-  const userIds = [...users.values()];
-  check("delete demo friends a", await supabase.from("friends").delete().in("user_a", userIds));
-  check("delete demo friends b", await supabase.from("friends").delete().in("user_b", userIds));
-
   const rows = FRIENDSHIPS.map(([e1, e2]) => {
     const [a, b] = [users.get(e1)!, users.get(e2)!].sort();
     return { user_a: a, user_b: b };
@@ -250,7 +362,8 @@ async function seedFriends(users: Map<string, string>) {
 
 async function main() {
   const users = await seedUsers();
-  console.log(`users: ${users.size}`);
+  console.log(`users: ${DEMO.length} demo + ${CROWD.length} crowd`);
+  await clearUserRows([...users.values()]);
   const events = await seedEvents();
   console.log(`events: ${events.size}`);
   await seedAttendance(users, events);
