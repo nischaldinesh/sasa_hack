@@ -26,6 +26,10 @@ type Props<T> = {
 const SWIPE_DISTANCE = 120;
 const SWIPE_VELOCITY = 600;
 const STACK = 3; // top card plus two peeking behind it
+const FAN = [
+  "translate(-14px, 10px) rotate(-5deg) scale(0.97)",
+  "translate(14px, 18px) rotate(5deg) scale(0.94)",
+];
 
 type Fly = (direction: SwipeDirection) => void;
 
@@ -117,16 +121,17 @@ export default function SwipeDeck<T>({
     <div className="flex w-full flex-col items-center gap-5">
       <div className="relative w-full max-w-[420px]">
         <div className="relative h-[60dvh] max-h-[620px] min-h-[440px] w-full">
-          {/* Cards waiting behind the top one, offset so the stack shows. */}
+          {/* Cards waiting behind the top one, fanned left and right so the
+              stack and the swipe directions are visible at rest. */}
           {behind
             .map((item, i) => (
               <div
                 key={getKey(item)}
                 aria-hidden
-                className="pointer-events-none absolute inset-0 transition-transform duration-300"
+                className="pointer-events-none absolute inset-0 transition-transform duration-500"
                 style={{
-                  transform: `translateY(${(i + 1) * 14}px) scale(${1 - (i + 1) * 0.05})`,
-                  opacity: 1 - (i + 1) * 0.25,
+                  transform: FAN[i],
+                  opacity: 1 - (i + 1) * 0.2,
                   zIndex: STACK - i - 1,
                 }}
               >
@@ -147,7 +152,6 @@ export default function SwipeDeck<T>({
             onDemoStop={endHint}
           />
         </div>
-        {hint && <SwipeHint allowStar={allowStar} canFlip={!!renderBack} onDone={endHint} />}
       </div>
 
       <div className="mt-4 flex items-center justify-center gap-5">
@@ -209,30 +213,6 @@ export default function SwipeDeck<T>({
   );
 }
 
-// First time tip shown over the deck while the top card demonstrates a swipe.
-function SwipeHint({ allowStar, canFlip, onDone }: { allowStar: boolean; canFlip: boolean; onDone: () => void }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-4 bottom-6 z-20 flex justify-center">
-      <div
-        role="status"
-        className="pointer-events-auto flex max-w-sm flex-col gap-3 rounded-3xl bg-zinc-900/90 p-5 text-white shadow-2xl backdrop-blur"
-      >
-        <p className="text-lg font-black">How it works</p>
-        <ul className="flex flex-col gap-1.5 text-sm text-white/85">
-          <li>👉 Swipe right (or ✓) if you want to go</li>
-          <li>👈 Swipe left (or ✕) to skip</li>
-          {allowStar && <li>⭐ Star to go first in their deck</li>}
-          {canFlip && <li>👆 Tap a card to flip it for details</li>}
-          <li>🗂️ More cards are stacked underneath</li>
-        </ul>
-        <button type="button" onClick={onDone} className="h-11 rounded-2xl bg-white font-bold text-zinc-900">
-          Got it
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function TopCard<T>({
   item,
   renderCard,
@@ -281,29 +261,37 @@ function TopCard<T>({
     };
   });
 
-  // Demo: nudge right (stamp peeks), then left, then settle. Loops while the tip shows.
+  // First visit demo: a hand drags the card right (GOING) and left (SKIP)
+  // twice, then the demo ends on its own.
   useEffect(() => {
     if (!demo) return;
     let cancelled = false;
-    const ease = { duration: 0.45, ease: "easeInOut" as const };
+    const ease = { duration: 0.55, ease: "easeInOut" as const };
+    const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
     (async () => {
-      await new Promise((r) => setTimeout(r, 500));
-      while (!cancelled) {
-        await animate(x, 95, ease);
+      await pause(600);
+      for (let round = 0; round < 2 && !cancelled; round++) {
+        await animate(x, 110, ease);
         if (cancelled) break;
+        await pause(250);
         await animate(x, 0, ease);
         if (cancelled) break;
-        await animate(x, -95, ease);
+        await animate(x, -110, ease);
         if (cancelled) break;
+        await pause(250);
         await animate(x, 0, ease);
-        await new Promise((r) => setTimeout(r, 1400));
+        if (cancelled) break;
+        await pause(400);
       }
-      if (!flying.current && !dragging.current) animate(x, 0, { duration: 0.2 });
+      if (!cancelled) onDemoStop();
+      else if (!flying.current && !dragging.current) animate(x, 0, { duration: 0.2 });
     })();
     return () => {
       cancelled = true;
       x.stop();
     };
+    // onDemoStop is stable for the life of this card.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demo, x]);
 
   function handleDragEnd(_: unknown, info: PanInfo) {
@@ -351,6 +339,16 @@ function TopCard<T>({
           </div>
         )}
       </div>
+      {demo && (
+        <motion.span
+          aria-hidden
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="pointer-events-none absolute bottom-[22%] left-1/2 z-20 -translate-x-1/2 text-7xl drop-shadow-[0_6px_12px_rgba(0,0,0,0.45)]"
+        >
+          👆
+        </motion.span>
+      )}
       <motion.span style={{ opacity: rightOpacity }} className={`${stampBase} left-6 -rotate-12 ${stamps.right.className}`}>
         {stamps.right.label}
       </motion.span>
