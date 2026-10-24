@@ -8,6 +8,7 @@ import EventArt from "@/components/EventArt";
 import { EventBackCard } from "@/components/EventSwipeCard";
 import { XIcon } from "@/components/Icons";
 import { eventBlurb } from "@/lib/events";
+import { photoCredit } from "@/lib/photoCredits";
 import { formatClock, formatDay } from "@/lib/time";
 import type { EventSummary } from "@/lib/types";
 
@@ -16,7 +17,13 @@ export function EventImage({ event, className = "" }: { event: EventSummary; cla
   const src = event.image_url;
   if (!src) return <EventArt category={event.category} className={className} />;
   return src.startsWith("/") ? (
-    <Image src={src} alt="" fill sizes="(min-width: 1024px) 360px, (min-width: 768px) 50vw, 100vw" className={`object-cover ${className}`} />
+    <Image
+      src={src}
+      alt=""
+      fill
+      sizes="(min-width: 1024px) 360px, (min-width: 768px) 50vw, 100vw"
+      className={`object-cover ${className}`}
+    />
   ) : (
     // eslint-disable-next-line @next/next/no-img-element -- external organizer photo
     <img src={src} alt="" className={`h-full w-full object-cover ${className}`} />
@@ -59,20 +66,44 @@ export default function EventPhotoCard({ event }: { event: EventSummary }) {
   const [open, setOpen] = useState(false);
   const going = event.myStatus === "going";
   const extra = Math.max(0, event.going - event.goingNames.length);
+  const credit = photoCredit(event.image_url);
 
   return (
     <article className="flex flex-col overflow-hidden rounded-[28px] bg-white shadow-lg shadow-zinc-200/70 ring-1 ring-zinc-100">
-      <Link href={`/events/${event.id}`} className="relative block aspect-[16/9] overflow-hidden bg-zinc-200">
-        <EventImage event={event} />
-        {event.category && (
-          <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-crimson backdrop-blur">
-            {event.category}
-          </span>
+      <div className="relative">
+        <Link href={`/events/${event.id}`} className="relative block aspect-[16/9] overflow-hidden bg-zinc-200">
+          <EventImage event={event} />
+          {event.category && (
+            <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-crimson backdrop-blur">
+              {event.category}
+            </span>
+          )}
+          {event.driver_perk && (
+            <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-3 py-1 text-xs font-bold text-amber-950">
+              🎁 Driver perk
+            </span>
+          )}
+        </Link>
+        {credit && (
+          <p className="absolute bottom-2 right-2 max-w-[85%] truncate rounded-md bg-black/45 px-2 py-0.5 text-[10px] text-white/90 backdrop-blur">
+            {credit.source ? (
+              <a href={credit.source} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                Photo: {credit.author}
+              </a>
+            ) : (
+              credit.author
+            )}
+            {" · "}
+            {credit.licenseUrl ? (
+              <a href={credit.licenseUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                {credit.license}
+              </a>
+            ) : (
+              credit.license
+            )}
+          </p>
         )}
-        {event.driver_perk && (
-          <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-3 py-1 text-xs font-bold text-amber-950">🎁 Driver perk</span>
-        )}
-      </Link>
+      </div>
 
       <div className="flex flex-1 flex-col gap-4 bg-zinc-50 p-5">
         <div className="flex items-start gap-4">
@@ -84,7 +115,10 @@ export default function EventPhotoCard({ event }: { event: EventSummary }) {
             <p className="mt-1.5 text-zinc-600">{eventBlurb(event)}</p>
           </div>
           {going ? (
-            <Link href={`/events/${event.id}/people`} className="shrink-0 rounded-full bg-green-600 px-5 py-2.5 font-semibold text-white shadow-md">
+            <Link
+              href={`/events/${event.id}/people`}
+              className="shrink-0 rounded-full bg-green-600 px-5 py-2.5 font-semibold text-white shadow-md"
+            >
               Going ✓
             </Link>
           ) : (
@@ -109,8 +143,15 @@ export default function EventPhotoCard({ event }: { event: EventSummary }) {
             )}
             {event.going === 0 && <span className="text-sm text-zinc-400">No one yet</span>}
           </div>
-          <button type="button" onClick={() => setOpen(true)} className="flex items-center gap-1 font-semibold text-zinc-600">
-            more details <span aria-hidden className="text-lg">›</span>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="flex items-center gap-1 font-semibold text-zinc-600"
+          >
+            more details{" "}
+            <span aria-hidden className="text-lg">
+              ›
+            </span>
           </button>
         </div>
       </div>
