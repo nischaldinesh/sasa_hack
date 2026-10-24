@@ -7,13 +7,11 @@ SoonerSwipe helps University of Oklahoma students get to events together. Swipe 
 Built for **SASE Hacks for Good**. Only `@ou.edu` accounts can sign up.
 
 <p>
-  <img src="docs/2%20%C2%B7%20Swipe%20Events%20%28Home%29.png" alt="Discover: swipe on events" width="190" />
-  <img src="docs/6%20%C2%B7%20Swipe%20People.png" alt="People deck" width="190" />
-  <img src="docs/7%20%C2%B7%20You%27re%20Connected%21.png" alt="You're Connected" width="190" />
-  <img src="docs/8%20%C2%B7%20Trip%20Card%20%2B%20Cost%20Split.png" alt="Trip card with gas split" width="190" />
+  <img src="docs/screenshots/02-discover.jpg" alt="Discover: swipe on events" width="190" />
+  <img src="docs/screenshots/09-rider-deck.jpg" alt="Rider deck: drivers on your route" width="190" />
+  <img src="docs/screenshots/10-connected.jpg" alt="You're Connected" width="190" />
+  <img src="docs/screenshots/08-driver-route.jpg" alt="Driver: riders on your route" width="190" />
 </p>
-
-<sub>Design mockups from <code>docs/</code>. The app's UI follows them; see <a href="docs/UI_SPEC.md">docs/UI_SPEC.md</a>.</sub>
 
 ## How it works
 
@@ -28,6 +26,26 @@ Built for **SASE Hacks for Good**. Only `@ou.edu` accounts can sign up.
    - **Riders only see drivers** whose route passes near them. A rider's right swipe on an on-route driver joins the car instantly, and both sides see **You're Connected!**
 6. **Trip card:** the crew, pickup stops in driving order, arrival estimate, gas split, and **Add All** to send friend requests.
 7. **After drop off,** riders rate their driver. Ratings show on Rides, person cards and trip cards.
+
+## Screenshots
+
+Screenshots of the running app with seeded demo data (phone size, 390 px).
+
+| Sign in | Discover | Card details (tap to flip) |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/01-sign-in.jpg" width="230" alt="Sign in" /> | <img src="docs/screenshots/02-discover.jpg" width="230" alt="Discover" /> | <img src="docs/screenshots/03-card-details.jpg" width="230" alt="Card details" /> |
+| **Register for the event** | **How are you going? (driver)** | **Driver: riders on your route** |
+| <img src="docs/screenshots/04-register.jpg" width="230" alt="Registration sheet" /> | <img src="docs/screenshots/07-how-going.jpg" width="230" alt="How are you going" /> | <img src="docs/screenshots/08-driver-route.jpg" width="230" alt="Driver route" /> |
+| **Rider: drivers on your route** | **You're Connected!** | **Trip card and gas split** |
+| <img src="docs/screenshots/09-rider-deck.jpg" width="230" alt="Rider deck" /> | <img src="docs/screenshots/10-connected.jpg" width="230" alt="You're Connected" /> | <img src="docs/screenshots/11-trip-card.jpg" width="230" alt="Trip card" /> |
+| **Events** | **Rides** | |
+| <img src="docs/screenshots/05-events.jpg" width="230" alt="Events" /> | <img src="docs/screenshots/06-rides.jpg" width="230" alt="Rides" /> | |
+
+On desktop (1280 px), the bottom tabs become a top navbar and lists become grids:
+
+<img src="docs/screenshots/13-desktop-events.jpg" alt="Events on desktop" width="800" />
+
+<img src="docs/screenshots/14-desktop-discover.jpg" alt="Discover on desktop" width="800" />
 
 ## Features
 
@@ -190,7 +208,7 @@ lib/                  Pure logic (route, match, deck, cost, reasons, recommend, 
 scripts/              seed.ts, demo-match.ts
 supabase/             SQL schema and migrations
 tests/                Vitest unit tests
-docs/                 Mockups, UI spec, photo credits
+docs/                 Design mockups, UI spec, screenshots, photo credits
 proxy.ts              Session refresh and auth redirects
 ```
 

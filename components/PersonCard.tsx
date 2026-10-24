@@ -64,9 +64,10 @@ export default function PersonCard({ person }: { person: PersonCardData }) {
             <p className="text-zinc-500">{[person.major, person.year].filter(Boolean).join(" · ")}</p>
           </div>
           {person.pickupPoint && (
-            <div className="shrink-0 text-right">
-              <p className="text-sm text-zinc-400">Pickup</p>
-              <p className="font-bold">{person.pickupPoint}</p>
+            // Long spot names wrap here instead of squeezing the person's name.
+            <div className="max-w-[45%] text-right">
+              <p className="text-sm text-zinc-400">{person.role === "driver" ? "Starts from" : "Pickup"}</p>
+              <p className="font-bold leading-snug">{person.pickupPoint}</p>
             </div>
           )}
         </div>
