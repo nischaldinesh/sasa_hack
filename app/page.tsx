@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { isOuEmail } from "@/lib/auth";
@@ -36,6 +37,7 @@ async function ensureProfile(supabase: SupabaseClient, user: User) {
 }
 
 export default function AuthPage() {
+  const router = useRouter();
   const [supabase] = useState(createClient);
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -45,15 +47,6 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      setChecking(false);
-    });
-  }, [supabase]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -91,7 +84,6 @@ export default function AuthPage() {
           await supabase.auth.signOut();
           return setError(profileError);
         }
-        setUser(data.user);
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
@@ -103,44 +95,14 @@ export default function AuthPage() {
           await supabase.auth.signOut();
           return setError(profileError);
         }
-        setUser(data.user);
       }
+      router.replace("/events");
+      router.refresh();
     } catch {
       setError("Something went wrong. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
-  }
-
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    setUser(null);
-    setPassword("");
-  }
-
-  if (checking) {
-    return (
-      <main className="flex flex-1 items-center justify-center p-4 text-zinc-500">
-        Loading…
-      </main>
-    );
-  }
-
-  if (user) {
-    return (
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 p-4">
-        <h1 className="text-3xl font-bold text-red-800 dark:text-red-500">SoonerSwipe</h1>
-        <p className="text-lg">
-          Signed in as <span className="font-semibold">{user.email}</span>
-        </p>
-        <button
-          onClick={handleSignOut}
-          className="h-12 rounded-full border border-zinc-300 font-medium dark:border-zinc-700"
-        >
-          Sign out
-        </button>
-      </main>
-    );
   }
 
   const input =

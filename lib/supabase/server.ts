@@ -1,10 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 // Server client for server components, route handlers and server functions.
 // Create a new one per request; never share across requests.
+// connection() keeps callers out of prerendering: auth checks token expiry
+// against the current time, which Cache Components only allows at request time.
 export async function createClient() {
+  await connection();
   const cookieStore = await cookies();
 
   return createServerClient(
