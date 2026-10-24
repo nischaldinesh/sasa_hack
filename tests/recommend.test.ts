@@ -21,6 +21,7 @@ function ev(id: string, over: Partial<EventSummary>): EventSummary {
     registration_url: null,
     driver_perk: null,
     description: null,
+    image_url: null,
     going: 0,
     interested: 0,
     newThisWeek: 0,
@@ -31,6 +32,7 @@ function ev(id: string, over: Partial<EventSummary>): EventSummary {
     myRegistered: false,
     skipped: false,
     friendNames: [],
+    goingNames: [],
     goingMajors: [],
     ...over,
   };

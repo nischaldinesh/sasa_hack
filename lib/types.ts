@@ -17,6 +17,7 @@ export type EventRow = {
   registration_url: string | null;
   driver_perk: string | null;
   description: string | null;
+  image_url: string | null;
 };
 
 export type AttendanceRow = {
@@ -55,6 +56,7 @@ export type EventSummary = EventRow & {
   myRegistered: boolean;
   skipped: boolean;
   friendNames: string[]; // friends going, for avatars
+  goingNames: string[]; // up to 5 people going (friends first), for avatars
   goingMajors: (string | null)[]; // majors of people going, for reason tags
 };
 

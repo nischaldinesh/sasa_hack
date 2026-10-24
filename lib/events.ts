@@ -55,6 +55,7 @@ export function buildEventSummaries(input: {
   const openSeats = openSeatsByEvent(attendance, trips, tripRiders);
 
   const friendNames = new Map<string, string[]>();
+  const otherNames = new Map<string, string[]>();
   const majors = new Map<string, (string | null)[]>();
   const mine = new Map<string, (typeof attendance)[number]>();
   for (const a of attendance) {
@@ -62,6 +63,8 @@ export function buildEventSummaries(input: {
     if (a.status !== "going") continue;
     if (friendIds.has(a.user_id)) {
       friendNames.set(a.event_id, [...(friendNames.get(a.event_id) ?? []), profiles?.get(a.user_id)?.name ?? "Friend"]);
+    } else if (a.user_id !== userId && (otherNames.get(a.event_id)?.length ?? 0) < 5) {
+      otherNames.set(a.event_id, [...(otherNames.get(a.event_id) ?? []), profiles?.get(a.user_id)?.name ?? "Sooner"]);
     }
     majors.set(a.event_id, [...(majors.get(a.event_id) ?? []), profiles?.get(a.user_id)?.major ?? null]);
   }
@@ -81,6 +84,7 @@ export function buildEventSummaries(input: {
       myRegistered: my?.registered ?? false,
       skipped: skippedIds?.has(e.id) ?? false,
       friendNames: friendNames.get(e.id) ?? [],
+      goingNames: [...(friendNames.get(e.id) ?? []), ...(otherNames.get(e.id) ?? [])].slice(0, 5),
       goingMajors: majors.get(e.id) ?? [],
     };
   });
@@ -121,3 +125,14 @@ export function sortEvents<
 
 export const TRENDING_MIN = 5;
 export const isTrending = (e: Pick<EventSummary, "newThisWeek">) => e.newThisWeek >= TRENDING_MIN;
+
+// One line under the card title, from live counts (never hardcoded).
+export function eventBlurb(e: Pick<EventSummary, "going" | "friendsGoing" | "openSeats">): string {
+  const sooners = `${e.going} ${e.going === 1 ? "Sooner is" : "Sooners are"}`;
+  if (e.going === 0) return "Be the first to go. Drivers and riders welcome.";
+  if (e.friendsGoing > 0) {
+    return `${sooners} going, including ${e.friendsGoing === 1 ? "1 of your friends" : `${e.friendsGoing} of your friends`}.`;
+  }
+  if (e.openSeats > 0) return `${sooners} going, with ${e.openSeats} open ${e.openSeats === 1 ? "seat" : "seats"} for riders.`;
+  return `${sooners} already going.`;
+}

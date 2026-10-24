@@ -18,6 +18,7 @@ const event = (id: string, start: string, extra: Partial<EventRow> = {}): EventR
   registration_url: null,
   driver_perk: null,
   description: null,
+  image_url: null,
   ...extra,
 });
 
@@ -68,6 +69,7 @@ describe("buildEventSummaries", () => {
     });
     expect(s).toMatchObject({ going: 3, interested: 2, newThisWeek: 5, friendsGoing: 1, myStatus: "interested", myRole: null });
     expect(s.friendNames).toEqual(["Friend"]);
+    expect(s.goingNames).toEqual(["Friend", "Sooner"]);
     expect(s.goingMajors).toHaveLength(2);
   });
 });
@@ -116,5 +118,20 @@ describe("sortEvents", () => {
   it("does not mutate the input", () => {
     sortEvents(rows, "going");
     expect(rows[0].id).toBe("a");
+  });
+});
+
+describe("eventBlurb", async () => {
+  const { eventBlurb } = await import("../lib/events");
+  it("mentions friends first", () => {
+    expect(eventBlurb({ going: 48, friendsGoing: 3, openSeats: 9 })).toBe("48 Sooners are going, including 3 of your friends.");
+    expect(eventBlurb({ going: 2, friendsGoing: 1, openSeats: 0 })).toBe("2 Sooners are going, including 1 of your friends.");
+  });
+  it("then open seats, then the plain count", () => {
+    expect(eventBlurb({ going: 12, friendsGoing: 0, openSeats: 1 })).toBe("12 Sooners are going, with 1 open seat for riders.");
+    expect(eventBlurb({ going: 1, friendsGoing: 0, openSeats: 0 })).toBe("1 Sooner is already going.");
+  });
+  it("invites the first person", () => {
+    expect(eventBlurb({ going: 0, friendsGoing: 0, openSeats: 0 })).toBe("Be the first to go. Drivers and riders welcome.");
   });
 });

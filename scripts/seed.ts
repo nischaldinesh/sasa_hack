@@ -1,7 +1,8 @@
 // Seeds demo users, crowd users, events, attendance and friendships.
-// Requires supabase/schema.sql and supabase/m4.sql.
+// Requires supabase/schema.sql and supabase/m4.sql through m6.sql.
 // Safe to run repeatedly: users are reused, seeded rows are deleted and re-inserted.
 // Usage: npm run seed
+import { existsSync } from "node:fs";
 import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { PICKUP_POINTS, type PickupKey } from "../lib/places";
@@ -239,6 +240,12 @@ function eventTime(daysFromNow: number, hour: number, minute = 0): Date {
   return chicagoToUtc(today.year, today.month, today.day + daysFromNow, hour, minute);
 }
 
+// Event photo at public/events/<key>.jpg when one exists; otherwise the app
+// shows the category illustration.
+function eventImage(key: string): string | null {
+  return existsSync(`public/events/${key}.jpg`) ? `/events/${key}.jpg` : null;
+}
+
 // Stable Oklahoma style plate per driver, e.g. "KTR-482".
 function plateFor(email: string): string {
   let h = 0;
@@ -348,6 +355,7 @@ async function seedEvents(): Promise<Map<string, string>> {
             registration_url: e.registrationUrl,
             driver_perk: e.driverPerk ?? null,
             description: e.description ?? null,
+            image_url: eventImage(e.key),
           };
         }),
       )
