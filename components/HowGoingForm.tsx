@@ -16,7 +16,7 @@ type Props = {
   verified: boolean; // driver's license check approved
   driverPerk: string | null;
   initial: {
-    role: Role;
+    role: Role | null; // null until the user picks; never preselected for new joins
     pickup: PickupKey | null;
     seats: number;
     mpg: number;
@@ -83,7 +83,7 @@ function RoleCard({
 
 export default function HowGoingForm({ eventId, joined, locked, verified, driverPerk, initial }: Props) {
   const router = useRouter();
-  const [role, setRole] = useState<Role>(initial.role);
+  const [role, setRole] = useState<Role | null>(initial.role);
   const [seats, setSeats] = useState(initial.seats);
   const [splitGas, setSplitGas] = useState(initial.splitGas);
   const [state, action, pending] = useActionState<ActionResult & { next?: string }, FormData>(joinEvent, {});
@@ -115,7 +115,7 @@ export default function HowGoingForm({ eventId, joined, locked, verified, driver
   return (
     <form action={action} className="flex flex-col gap-4 pb-28 md:pb-0">
       <input type="hidden" name="eventId" value={eventId} />
-      <input type="hidden" name="role" value={role} />
+      <input type="hidden" name="role" value={role ?? ""} />
       <h2 className="text-2xl font-black tracking-tight">How are you going?</h2>
       {locked && (
         <p className="flex items-center gap-2 rounded-2xl bg-zinc-100 p-3 text-sm text-zinc-600">
@@ -237,10 +237,16 @@ export default function HowGoingForm({ eventId, joined, locked, verified, driver
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:static md:border-0 md:bg-transparent md:p-0">
         <button
           type="submit"
-          disabled={pending || (role === "driver" && !verified)}
+          disabled={pending || role === null || (role === "driver" && !verified)}
           className="h-14 w-full rounded-2xl bg-crimson text-lg font-bold text-white shadow-lg shadow-crimson/25 disabled:opacity-60"
         >
-          {pending ? "Saving…" : role === "driver" ? "Join as Driver — Find Riders" : "Join as Rider — Find Drivers"}
+          {pending
+            ? "Saving…"
+            : role === "driver"
+              ? "Join as Driver — Find Riders"
+              : role === "rider"
+                ? "Join as Rider — Find Drivers"
+                : "Choose driving or riding"}
         </button>
       </div>
     </form>

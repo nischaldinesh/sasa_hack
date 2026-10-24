@@ -118,7 +118,8 @@ async function EventJoin({ params }: { params: PageProps<"/events/[id]">["params
           verified={!!profile.data?.license_verified_at}
           driverPerk={event.driver_perk}
           initial={{
-            role: (joined ? mine.data?.role : null) ?? (profile.data?.car_model || profile.data?.mpg ? "driver" : "rider"),
+            // Only people who already joined see their role selected.
+            role: joined ? (mine.data?.role ?? null) : null,
             pickup: pickupKeyByName(mine.data?.pickup_point ?? null),
             seats: mine.data?.seats ?? 3,
             mpg: profile.data?.mpg ?? 30,
