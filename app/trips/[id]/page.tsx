@@ -4,6 +4,7 @@ import Link from "next/link";
 import BackButton from "@/components/BackButton";
 import { notFound, redirect } from "next/navigation";
 import Avatar from "@/components/Avatar";
+import CancelGoingButton from "@/components/CancelGoingButton";
 import CrewFriends from "@/components/CrewFriends";
 import ReviewCard from "@/components/ReviewCard";
 import { createClient } from "@/lib/supabase/server";
@@ -88,23 +89,33 @@ async function TripCard({ params }: { params: PageProps<"/trips/[id]">["params"]
 
   const { driver, riders, event } = trip;
   const crewmates = [driver, ...riders].filter((m) => m.id !== user.id);
-  const statuses = await getFriendStatuses(supabase, user.id, crewmates.map((m) => m.id));
+  const statuses = await getFriendStatuses(
+    supabase,
+    user.id,
+    crewmates.map((m) => m.id),
+  );
   // Driver's start, then pickups in the order they come along the route to the event.
-  const start = driver.pickupLat != null && driver.pickupLng != null ? { lat: driver.pickupLat, lng: driver.pickupLng } : null;
+  const start =
+    driver.pickupLat != null && driver.pickupLng != null ? { lat: driver.pickupLat, lng: driver.pickupLng } : null;
   const pickups = riders.flatMap((r) =>
-    r.pickupLat != null && r.pickupLng != null ? [{ name: r.pickupPoint, pickup: { lat: r.pickupLat, lng: r.pickupLng } }] : [],
+    r.pickupLat != null && r.pickupLng != null
+      ? [{ name: r.pickupPoint, pickup: { lat: r.pickupLat, lng: r.pickupLng } }]
+      : [],
   );
   const routeOrder = start ? planRoute(start, { lat: event.lat, lng: event.lng }, pickups).stops : pickups;
   const stops = [driver.pickupPoint, ...routeOrder.map((p) => p.name)].filter(
     (name, i, all): name is string => !!name && all.indexOf(name) === i,
   );
   const venue = [event.location, shortCity(event.city)].filter(Boolean).join(", ");
-  const arrive = driver.departTime && trip.oneWayMiles != null ? arrivalEstimate(driver.departTime, trip.oneWayMiles) : null;
+  const arrive =
+    driver.departTime && trip.oneWayMiles != null ? arrivalEstimate(driver.departTime, trip.oneWayMiles) : null;
   const miles = trip.roundTripMiles;
   const arrived = isDroppedOff(arrive, event.start_time);
   const perk = event.driver_perk;
   const split =
-    trip.costMode === "split" && miles && driver.mpg ? costBreakdown(miles, driver.mpg, GAS_PRICE, USAGE_RATE, riders.length) : null;
+    trip.costMode === "split" && miles && driver.mpg
+      ? costBreakdown(miles, driver.mpg, GAS_PRICE, USAGE_RATE, riders.length)
+      : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -155,7 +166,9 @@ async function TripCard({ params }: { params: PageProps<"/trips/[id]">["params"]
               🎁
             </span>
             <div>
-              <p className="text-sm font-bold uppercase tracking-wider text-amber-700">Driver perk from {event.title}</p>
+              <p className="text-sm font-bold uppercase tracking-wider text-amber-700">
+                Driver perk from {event.title}
+              </p>
               <p className="text-lg font-bold">{perk}</p>
             </div>
           </section>
@@ -175,7 +188,9 @@ async function TripCard({ params }: { params: PageProps<"/trips/[id]">["params"]
               <span className="absolute -left-8 top-1.5 h-4 w-4 rounded-full bg-red-500" aria-hidden />
               <p className="text-lg font-bold">{venue}</p>
               <p className="text-zinc-500">
-                {[arrive ? `Arrive ~${formatClock(arrive)}` : null, miles != null ? `~${miles} mi total` : null].filter(Boolean).join(" · ")}
+                {[arrive ? `Arrive ~${formatClock(arrive)}` : null, miles != null ? `~${miles} mi total` : null]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             </li>
           </ol>
@@ -236,8 +251,19 @@ async function TripCard({ params }: { params: PageProps<"/trips/[id]">["params"]
         )}
 
         {crewmates.length > 0 && (
-          <CrewFriends crew={crewmates.map((m) => ({ id: m.id, name: m.name, status: statuses.get(m.id) ?? "none" }))} />
+          <CrewFriends
+            crew={crewmates.map((m) => ({ id: m.id, name: m.name, status: statuses.get(m.id) ?? "none" }))}
+          />
         )}
+
+        <CancelGoingButton
+          eventId={event.id}
+          eventTitle={event.title}
+          role={trip.myRole}
+          label={trip.myRole === "driver" ? "Cancel trip" : "Cancel my spot"}
+          variant="block"
+          redirectTo="/events"
+        />
       </div>
     </div>
   );

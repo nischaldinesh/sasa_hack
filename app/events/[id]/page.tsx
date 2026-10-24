@@ -108,6 +108,7 @@ async function EventJoin({ params }: { params: PageProps<"/events/[id]">["params
         )}
         <HowGoingForm
           eventId={event.id}
+          eventTitle={event.title}
           joined={joined}
           locked={lock.locked}
           verified={!!profile.data?.license_verified_at}

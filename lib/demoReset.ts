@@ -9,51 +9,22 @@ import {
   FRIENDSHIPS,
   PAST_TRIPS,
   attendanceRow,
-  isDemoEmail,
   profileRow,
 } from "./demoData";
 
-// Puts one demo account back to its `npm run seed` state, so the next person
-// can run the demo from the start. Pass a service role client (server only).
-// Other accounts' swipes on this account are cleared too, so it reappears in
-// their decks; event counts follow from attendance automatically.
-export async function resetDemoAccount(admin: SupabaseClient, email: string): Promise<void> {
-  const me = DEMO.find((u) => u.email === email.toLowerCase());
-  if (!me || !isDemoEmail(email)) throw new Error("Only demo accounts can be reset.");
-
+// "Reset demo": clears everything one account did (joins, swipes both ways,
+// trips, skips, friends, friend requests, reviews) so the next person can run
+// the demo from the start. Seeded accounts (demo logins and crowd users) are
+// then rebuilt to their `npm run seed` state; other accounts stay empty and
+// keep their profile. Pass a service role client (server only). Other
+// accounts' swipes on this one are cleared too, so it reappears in their
+// decks; event counts follow from attendance automatically.
+export async function resetAccount(admin: SupabaseClient, account: { id: string; email: string }): Promise<void> {
   const fail = (label: string, error: { message: string } | null) => {
     if (error) throw new Error(`${label}: ${error.message}`);
   };
-
-  // Ids for every seeded person this account is linked to.
-  const { data: people, error: peopleError } = await admin
-    .from("profiles")
-    .select("id, email")
-    .in(
-      "email",
-      [...DEMO, ...CROWD].map((u) => u.email),
-    );
-  fail("profiles", peopleError);
-  const ids = new Map((people ?? []).map((p) => [p.email as string, p.id as string]));
-  const myId = ids.get(me.email);
-  if (!myId) throw new Error("Demo account not found. Run npm run seed.");
-
-  const { data: events, error: eventsError } = await admin
-    .from("events")
-    .select("id, title, start_time")
-    .in(
-      "title",
-      EVENTS.map((e) => e.title),
-    );
-  fail("events", eventsError);
-  const eventByKey = new Map(
-    EVENTS.map((e) => [
-      e.key,
-      (events ?? []).find((row) => row.title === e.title) as { id: string; start_time: string } | undefined,
-    ]),
-  );
-  if ([...eventByKey.values()].some((e) => !e)) throw new Error("Demo events are missing. Run npm run seed.");
-  const event = (key: string) => eventByKey.get(key)!;
+  const myId = account.id;
+  const me = [...DEMO, ...CROWD].find((u) => u.email === account.email.toLowerCase());
 
   // 1. Clear everything this account did. Deleting the trips it drives
   //    removes their riders; removing it as a rider frees that seat.
@@ -74,6 +45,42 @@ export async function resetDemoAccount(admin: SupabaseClient, email: string): Pr
     const { error } = await admin.from(table).delete().eq(column, myId);
     fail(`clear ${table}`, error);
   }
+
+  if (!me) {
+    // Not a seeded account: leave it empty, with a clear bell.
+    const { error } = await admin.from("profiles").update({ matches_seen_at: new Date().toISOString() }).eq("id", myId);
+    fail("profile", error);
+    return;
+  }
+
+  // Ids for every seeded person this account is linked to.
+  const { data: people, error: peopleError } = await admin
+    .from("profiles")
+    .select("id, email")
+    .in(
+      "email",
+      [...DEMO, ...CROWD].map((u) => u.email),
+    );
+  fail("profiles", peopleError);
+  const ids = new Map((people ?? []).map((p) => [p.email as string, p.id as string]));
+  ids.set(me.email, myId);
+
+  const { data: events, error: eventsError } = await admin
+    .from("events")
+    .select("id, title, start_time")
+    .in(
+      "title",
+      EVENTS.map((e) => e.title),
+    );
+  fail("events", eventsError);
+  const eventByKey = new Map(
+    EVENTS.map((e) => [
+      e.key,
+      (events ?? []).find((row) => row.title === e.title) as { id: string; start_time: string } | undefined,
+    ]),
+  );
+  if ([...eventByKey.values()].some((e) => !e)) throw new Error("Demo events are missing. Run npm run seed.");
+  const event = (key: string) => eventByKey.get(key)!;
 
   // 2. Profile, verification and bell back to the seeded values.
   const { error: profileError } = await admin.from("profiles").update(profileRow(me, myId)).eq("id", myId);

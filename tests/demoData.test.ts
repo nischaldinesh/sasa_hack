@@ -9,6 +9,7 @@ import {
   PAST_TRIPS,
   attendanceRow,
   isDemoEmail,
+  isSeededEmail,
   isVerifiedDriver,
 } from "../lib/demoData";
 
@@ -28,6 +29,8 @@ describe("demo data", () => {
     expect(isDemoEmail("RIDER1@ou.edu")).toBe(true);
     expect(isDemoEmail("crowd01@ou.edu")).toBe(false);
     expect(isDemoEmail(null)).toBe(false);
+    expect(isSeededEmail("crowd18@ou.edu")).toBe(true);
+    expect(isSeededEmail("someone.new@ou.edu")).toBe(false);
   });
 
   it("references only seeded people and events", () => {

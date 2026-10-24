@@ -1,16 +1,18 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PickupPicker from "@/components/PickupPicker";
 import { CarIcon, CheckIcon, LockIcon, UserIcon } from "@/components/Icons";
-import { joinEvent, leaveEvent, type ActionResult } from "@/app/events/actions";
+import CancelGoingButton from "@/components/CancelGoingButton";
+import { joinEvent, type ActionResult } from "@/app/events/actions";
 import type { PickupKey } from "@/lib/places";
 import type { Role } from "@/lib/types";
 
 type Props = {
   eventId: string;
+  eventTitle: string;
   joined: boolean;
   locked: boolean; // in a trip for this event: role and attendance can't change
   verified: boolean; // driver's license check approved
@@ -81,14 +83,12 @@ function RoleCard({
   );
 }
 
-export default function HowGoingForm({ eventId, joined, locked, verified, driverPerk, initial }: Props) {
+export default function HowGoingForm({ eventId, eventTitle, joined, locked, verified, driverPerk, initial }: Props) {
   const router = useRouter();
   const [role, setRole] = useState<Role | null>(initial.role);
   const [seats, setSeats] = useState(initial.seats);
   const [splitGas, setSplitGas] = useState(initial.splitGas);
   const [state, action, pending] = useActionState<ActionResult & { next?: string }, FormData>(joinEvent, {});
-  const [leaveResult, setLeaveResult] = useState<ActionResult>({});
-  const [leaving, startLeaving] = useTransition();
 
   // Go to the people deck once per successful join. Effects re-run when Next
   // shows this hidden page again, so remember which result was handled;
@@ -101,11 +101,6 @@ export default function HowGoingForm({ eventId, joined, locked, verified, driver
     }
   }, [state, router]);
 
-  function leave() {
-    if (!window.confirm("Leave this event? Your swipes for it will be cleared.")) return;
-    startLeaving(async () => setLeaveResult(await leaveEvent(eventId)));
-  }
-
   // Drivers enter where their route starts (the event is the destination);
   // riders enter where they want to be picked up.
   const placeAndTime = (forRole: Role) => (
@@ -115,7 +110,9 @@ export default function HowGoingForm({ eventId, joined, locked, verified, driver
         <PickupPicker
           name="pickup"
           defaultValue={initial.pickup}
-          placeholder={forRole === "driver" ? "Where you'll leave from" : "e.g. Adams Hall, Campus Corner, Crimson Park"}
+          placeholder={
+            forRole === "driver" ? "Where you'll leave from" : "e.g. Adams Hall, Campus Corner, Crimson Park"
+          }
         />
         {forRole === "driver" && (
           <span className="text-sm text-zinc-500">
@@ -202,7 +199,16 @@ export default function HowGoingForm({ eventId, joined, locked, verified, driver
             <label className="flex flex-col gap-2">
               <span className={label}>Car mpg</span>
               <span className="relative">
-                <input name="mpg" type="number" min={1} max={150} step="0.1" defaultValue={initial.mpg} required className={field} />
+                <input
+                  name="mpg"
+                  type="number"
+                  min={1}
+                  max={150}
+                  step="0.1"
+                  defaultValue={initial.mpg}
+                  required
+                  className={field}
+                />
                 <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400">mpg</span>
               </span>
             </label>
@@ -239,17 +245,16 @@ export default function HowGoingForm({ eventId, joined, locked, verified, driver
         </RoleCard>
       </div>
 
-      {(state.error || leaveResult.error) && (
+      {state.error && (
         <p role="alert" className="rounded-2xl bg-red-50 p-3 text-sm font-medium text-red-700">
-          {state.error ?? leaveResult.error}
+          {state.error}
         </p>
       )}
-      {leaveResult.message && <p className="text-sm font-medium text-green-700">{leaveResult.message}</p>}
 
-      {joined && !locked && (
-        <button type="button" onClick={leave} disabled={leaving} className="text-sm font-medium text-zinc-500 underline">
-          {leaving ? "Leaving…" : "Leave this event"}
-        </button>
+      {joined && (
+        <div className="flex justify-center">
+          <CancelGoingButton eventId={eventId} eventTitle={eventTitle} role={initial.role} />
+        </div>
       )}
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:static md:border-0 md:bg-transparent md:p-0">

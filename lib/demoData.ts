@@ -513,6 +513,13 @@ export const FRIENDSHIPS: [string, string][] = [
 
 export const DEMO_EMAILS = new Set(DEMO.map((u) => u.email));
 
+const SEEDED_EMAILS = new Set([...DEMO, ...CROWD].map((u) => u.email));
+
+// Demo logins and crowd users: Reset demo restores their seeded state.
+export function isSeededEmail(email: string | null | undefined): boolean {
+  return !!email && SEEDED_EMAILS.has(email.toLowerCase());
+}
+
 export function isDemoEmail(email: string | null | undefined): boolean {
   return !!email && DEMO_EMAILS.has(email.toLowerCase());
 }

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import DiscoverDeck from "@/components/DiscoverDeck";
 import DemoResetButton from "@/components/DemoResetButton";
-import { isDemoEmail } from "@/lib/demoData";
+import { isSeededEmail } from "@/lib/demoData";
 import { createClient } from "@/lib/supabase/server";
 import { getEventSummaries } from "@/lib/queries";
 
@@ -33,7 +33,7 @@ async function DiscoverData() {
   return (
     <>
       <DiscoverDeck events={events} />
-      {isDemoEmail(user.email) && <DemoResetButton name={profile?.name ?? user.email!} />}
+      <DemoResetButton name={profile?.name ?? user.email!} seeded={isSeededEmail(user.email)} />
     </>
   );
 }

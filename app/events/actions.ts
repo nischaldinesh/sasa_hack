@@ -81,7 +81,7 @@ async function resetMatching(userId: string, eventId: string) {
   ]);
 }
 
-const LOCKED = "You're in a trip for this event, so you can't change your role or leave.";
+const LOCKED = "You're in a trip for this event, so you can't change your role. Cancel going first to switch.";
 
 // "How are you going?": going as a driver or a rider. Returns where to go next.
 export async function joinEvent(_prev: ActionResult, formData: FormData): Promise<ActionResult & { next?: string }> {
@@ -168,23 +168,39 @@ export async function joinEvent(_prev: ActionResult, formData: FormData): Promis
   return { next: `/events/${eventId}/people` };
 }
 
-// Leave an event I'm going to. Blocked once I'm in a trip for it.
-export async function leaveEvent(eventId: string): Promise<ActionResult> {
+// Cancel going to an event, even after matching (the UI warns first).
+export async function cancelGoing(eventId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Your session expired. Sign in again." };
 
-  const { locked } = await getTripLock(supabase, user.id, eventId);
-  if (locked) return { error: LOCKED };
+  const { data: mine, error: mineError } = await supabase
+    .from("attendance")
+    .select("status, role")
+    .eq("user_id", user.id)
+    .eq("event_id", eventId)
+    .maybeSingle();
+  if (mineError) return { error: "Couldn't cancel. Try again." };
+  if (mine?.status !== "going") return { error: "You're not going to this event." };
 
-  const { error } = await supabase.from("attendance").delete().eq("user_id", user.id).eq("event_id", eventId);
-  if (error) return { error: "Couldn't leave this event. Try again." };
+  // Leave any car first: a rider frees their seat; a driver's trip is
+  // cancelled, which sends its riders back to finding a ride.
+  const admin = createAdminClient();
+  const { error: seatError } = await admin.from("trip_riders").delete().eq("event_id", eventId).eq("rider_id", user.id);
+  if (seatError) return { error: "Couldn't cancel. Try again." };
   await resetMatching(user.id, eventId);
 
+  const { error } = await supabase.from("attendance").delete().eq("user_id", user.id).eq("event_id", eventId);
+  if (error) return { error: "Couldn't cancel. Try again." };
+  // Keep it out of the Discover deck; it can still be joined again from Events.
+  await supabase
+    .from("event_skips")
+    .upsert({ user_id: user.id, event_id: eventId }, { onConflict: "user_id,event_id", ignoreDuplicates: true });
+
   refresh();
-  return { message: "You left this event." };
+  return { message: "You're no longer going to this event." };
 }
 
 export async function signOut() {

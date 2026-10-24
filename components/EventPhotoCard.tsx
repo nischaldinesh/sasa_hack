@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
+import CancelGoingButton from "@/components/CancelGoingButton";
 import EventImage from "@/components/EventImage";
 import { EventBackCard } from "@/components/EventSwipeCard";
 import { XIcon } from "@/components/Icons";
@@ -98,12 +99,21 @@ export default function EventPhotoCard({ event }: { event: EventSummary }) {
             <p className="mt-1.5 text-zinc-600">{eventBlurb(event)}</p>
           </div>
           {going ? (
-            <Link
-              href={`/events/${event.id}/people`}
-              className="shrink-0 rounded-full bg-green-600 px-5 py-2.5 font-semibold text-white shadow-md"
-            >
-              Going ✓
-            </Link>
+            <span className="flex shrink-0 flex-col items-center gap-1.5">
+              <Link
+                href={`/events/${event.id}/people`}
+                className="rounded-full bg-green-600 px-5 py-2.5 font-semibold text-white shadow-md"
+              >
+                Going ✓
+              </Link>
+              <CancelGoingButton
+                eventId={event.id}
+                eventTitle={event.title}
+                role={event.myRole}
+                label="Cancel"
+                variant="small"
+              />
+            </span>
           ) : (
             <Link
               href={`/events/${event.id}`}

@@ -3,14 +3,18 @@
 import { useState, useTransition } from "react";
 import { resetMyDemo } from "@/app/discover/actions";
 
-// Bottom of Discover, demo accounts only: resets this account and replays the
-// swipe tutorial on this browser for the next person.
-export default function DemoResetButton({ name }: { name: string }) {
+// Bottom of Discover: resets this account and replays the swipe tutorial on
+// this browser for the next person. Seeded accounts return to their seeded
+// state; other accounts are cleared.
+export default function DemoResetButton({ name, seeded }: { name: string; seeded: boolean }) {
   const [pending, start] = useTransition();
   const [result, setResult] = useState<{ error?: string; message?: string }>({});
 
   function reset() {
-    if (!window.confirm(`Reset ${name}'s demo? Their swipes, joins, trips, friends and reviews go back to the starting state.`)) return;
+    const what = seeded
+      ? `Their swipes, joins, trips, friends and reviews go back to the starting demo state.`
+      : `This clears their swipes, joins, trips, friends and reviews. Their profile stays.`;
+    if (!window.confirm(`Reset ${name}'s demo? ${what}`)) return;
     setResult({});
     start(async () => {
       const r = await resetMyDemo();
