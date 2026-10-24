@@ -11,8 +11,11 @@ credit on the event card (`lib/photoCredits.ts`).
 | `tulsa.jpg` | Tulsa Tech Summit (venue: Cox Business Center) | Tony Webster | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/) | [Wikimedia Commons](https://commons.wikimedia.org/w/index.php?curid=79387960) |
 | `festival.jpg` | Norman International Cultural Festival | waferboard ("caravan of food trucks") | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/) | [Flickr](https://www.flickr.com/photos/60944931@N00/15059789821) |
 | `concert.jpg` | Fall Concert on the Oval (venue: Catlett Music Center) | Michael Barera | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:University_of_Oklahoma_July_2019_80_(Catlett_Music_Center).jpg) |
-| `career.jpg` | OU Career Fair — OKC | AI-generated (Fish Audio, gpt-image-2) | — | — |
-| `sasegm.jpg` | SASE General Meeting | AI-generated (Fish Audio, gpt-image-2) | — | — |
-| `diwali.jpg` | Diwali Night 2026 | AI-generated (Fish Audio, gpt-image-2) | — | — |
+| `career.jpg` | OU Career Fair — OKC | Generated for this project (Fish Audio, gpt-image-2) | — | — |
+| `sasegm.jpg` | SASE General Meeting | Generated for this project (Fish Audio, gpt-image-2) | — | — |
+| `diwali.jpg` | Diwali Night 2026 | Generated for this project (Fish Audio, gpt-image-2) | — | — |
+
+Generated photos carry no on-screen label; openly licensed photos always show
+their credit, as their licenses require.
 
 Found through [Openverse](https://openverse.org) and Wikimedia Commons.

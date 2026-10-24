@@ -1,34 +1,15 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
-import EventArt from "@/components/EventArt";
+import EventImage from "@/components/EventImage";
 import { EventBackCard } from "@/components/EventSwipeCard";
 import { XIcon } from "@/components/Icons";
 import { eventBlurb } from "@/lib/events";
 import { photoCredit } from "@/lib/photoCredits";
 import { formatClock, formatDay } from "@/lib/time";
 import type { EventSummary } from "@/lib/types";
-
-// Event photo, or the category illustration until a photo is added.
-export function EventImage({ event, className = "" }: { event: EventSummary; className?: string }) {
-  const src = event.image_url;
-  if (!src) return <EventArt category={event.category} className={className} />;
-  return src.startsWith("/") ? (
-    <Image
-      src={src}
-      alt=""
-      fill
-      sizes="(min-width: 1024px) 360px, (min-width: 768px) 50vw, 100vw"
-      className={`object-cover ${className}`}
-    />
-  ) : (
-    // eslint-disable-next-line @next/next/no-img-element -- external organizer photo
-    <img src={src} alt="" className={`h-full w-full object-cover ${className}`} />
-  );
-}
 
 function DetailsModal({ event, onClose }: { event: EventSummary; onClose: () => void }) {
   useEffect(() => {

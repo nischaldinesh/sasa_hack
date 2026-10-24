@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED = ["/discover", "/events", "/trips", "/friends", "/profile", "/matches"];
+const PROTECTED = ["/discover", "/events", "/rides", "/trips", "/friends", "/profile", "/matches"];
 
 // Refreshes the Supabase session cookie on every request so server
 // components always see a valid user, and routes by auth state:

@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { ATTENDANCE, CROWD, DEMO, EVENTS, FRIEND_REQUESTS, FRIENDSHIPS, PAST_TRIPS, attendanceRow, isDemoEmail } from "../lib/demoData";
+import {
+  ATTENDANCE,
+  CROWD,
+  DEMO,
+  EVENTS,
+  FRIEND_REQUESTS,
+  FRIENDSHIPS,
+  PAST_TRIPS,
+  attendanceRow,
+  isDemoEmail,
+  isVerifiedDriver,
+} from "../lib/demoData";
 
 const emails = new Set([...DEMO, ...CROWD].map((u) => u.email));
 const eventKeys = new Set(EVENTS.map((e) => e.key));
@@ -25,7 +36,8 @@ describe("demo data", () => {
       expect(eventKeys.has(a.event)).toBe(true);
     }
     for (const pair of [...FRIENDSHIPS, ...FRIEND_REQUESTS]) for (const e of pair) expect(emails.has(e)).toBe(true);
-    for (const t of PAST_TRIPS) for (const e of [t.driver, ...t.riders.map((r) => r.email)]) expect(emails.has(e)).toBe(true);
+    for (const t of PAST_TRIPS)
+      for (const e of [t.driver, ...t.riders.map((r) => r.email)]) expect(emails.has(e)).toBe(true);
   });
 
   it("has at most one attendance row per person and event", () => {
@@ -38,5 +50,15 @@ describe("demo data", () => {
     const row = attendanceRow(a, 0, "u", "e", "2026-11-01T15:00:00.000Z", Date.parse("2026-10-24T12:00:00Z"));
     expect(row).toMatchObject({ status: "going", role: "driver", seats: 3, registered: true, split_gas: true });
     expect("depart_time" in row && Date.parse(row.depart_time)).toBe(Date.parse("2026-11-01T14:15:00.000Z"));
+  });
+});
+
+describe("seeded driver verification", () => {
+  it("verifies every demo driver and most, not all, crowd drivers", () => {
+    for (const u of DEMO.filter((d) => d.mpg !== null)) expect(isVerifiedDriver(u)).toBe(true);
+    const crowdDrivers = CROWD.filter((u) => u.mpg !== null);
+    const unverified = crowdDrivers.filter((u) => !isVerifiedDriver(u));
+    expect(unverified.length).toBeGreaterThan(0);
+    expect(unverified.length).toBeLessThan(crowdDrivers.length / 2);
   });
 });

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildPersonDeck } from "./deck";
 import { buildEventSummaries } from "./events";
 import { haversineMiles, roundTripMiles } from "./geo";
+import type { RideOffer } from "./rides";
 import type {
   AttendanceRow,
   EventRow,
@@ -80,11 +81,17 @@ export async function getEventSummaries(
   });
 }
 
-async function getProfiles(supabase: SupabaseClient, ids: string[]): Promise<Map<string, ProfileRow>> {
-  if (ids.length === 0) return new Map();
-  const rows = must(
-    await supabase.from("profiles").select("id, name, major, mpg, interests").in("id", ids),
-  ) as ProfileRow[];
+// Every ProfileRow column; person cards, rides and trip crews rely on these.
+export const PROFILE_COLUMNS = "id, name, major, year, bio, orgs, car_model, mpg, interests, license_verified_at";
+
+export async function getProfiles(supabase: SupabaseClient, ids: string[]): Promise<Map<string, ProfileRow>> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return new Map();
+  const rows: ProfileRow[] = [];
+  // Chunk ids so long lists stay well under URL length limits.
+  for (let i = 0; i < unique.length; i += 150) {
+    rows.push(...(must(await supabase.from("profiles").select(PROFILE_COLUMNS).in("id", unique.slice(i, i + 150))) as ProfileRow[]));
+  }
   return new Map(rows.map((p) => [p.id, p]));
 }
 
@@ -488,6 +495,125 @@ export async function getIncomingRequests(supabase: SupabaseClient, userId: stri
     name: profiles.get(r.from_user)?.name ?? "Sooner",
     major: profiles.get(r.from_user)?.major ?? null,
     year: profiles.get(r.from_user)?.year ?? null,
+    createdAt: r.created_at,
+  }));
+}
+
+// Rides tab: every driver going to an upcoming event, with verification,
+// rating, latest review and seats left.
+export async function getRideOffers(supabase: SupabaseClient, userId: string): Promise<RideOffer[]> {
+  const events = must(
+    await supabase
+      .from("events")
+      .select("id, title, start_time, location, city")
+      .gte("start_time", new Date().toISOString()),
+  ) as Pick<EventRow, "id" | "title" | "start_time" | "location" | "city">[];
+  if (events.length === 0) return [];
+  const eventIds = events.map((e) => e.id);
+
+  const [driversRes, mineRes, tripsRes, ridersRes] = await Promise.all([
+    supabase
+      .from("attendance")
+      .select("user_id, event_id, pickup_point, depart_time, seats")
+      .eq("status", "going")
+      .eq("role", "driver")
+      .in("event_id", eventIds),
+    supabase.from("attendance").select("event_id, role").eq("user_id", userId).eq("status", "going").in("event_id", eventIds),
+    supabase.from("trips").select("id, event_id, driver_id").in("event_id", eventIds),
+    supabase.from("trip_riders").select("trip_id").in("event_id", eventIds),
+  ]);
+  const drivers = must(driversRes) as Pick<AttendanceRow, "user_id" | "event_id" | "pickup_point" | "depart_time" | "seats">[];
+  const myRoles = new Map((must(mineRes) as { event_id: string; role: Role | null }[]).map((m) => [m.event_id, m.role]));
+  const tripByDriverEvent = new Map((must(tripsRes) as TripRow[]).map((t) => [`${t.driver_id}:${t.event_id}`, t.id]));
+  const ridersPerTrip = new Map<string, number>();
+  for (const r of must(ridersRes) as { trip_id: string }[]) ridersPerTrip.set(r.trip_id, (ridersPerTrip.get(r.trip_id) ?? 0) + 1);
+
+  const driverIds = [...new Set(drivers.map((d) => d.user_id))];
+  const [profiles, ratingsRes, reviewsRes] = await Promise.all([
+    getProfiles(supabase, driverIds),
+    supabase.from("driver_ratings").select("driver_id, rating, reviews").in("driver_id", driverIds),
+    supabase
+      .from("reviews")
+      .select("reviewee_id, reviewer_id, rating, comment, created_at")
+      .in("reviewee_id", driverIds)
+      .not("comment", "is", null)
+      .order("created_at", { ascending: false }),
+  ]);
+  const ratings = new Map(
+    (must(ratingsRes) as { driver_id: string; rating: number; reviews: number }[]).map((r) => [r.driver_id, r]),
+  );
+  const latest = new Map<string, { reviewer_id: string; rating: number; comment: string }>();
+  for (const r of must(reviewsRes) as { reviewee_id: string; reviewer_id: string; rating: number; comment: string }[]) {
+    if (!latest.has(r.reviewee_id)) latest.set(r.reviewee_id, r);
+  }
+  const reviewerNames = await getProfiles(supabase, [...latest.values()].map((r) => r.reviewer_id));
+  const eventById = new Map(events.map((e) => [e.id, e]));
+
+  return drivers.map((d) => {
+    const e = eventById.get(d.event_id)!;
+    const p = profiles.get(d.user_id);
+    const tripId = tripByDriverEvent.get(`${d.user_id}:${d.event_id}`);
+    const taken = tripId ? (ridersPerTrip.get(tripId) ?? 0) : 0;
+    const rating = ratings.get(d.user_id);
+    const review = latest.get(d.user_id);
+    return {
+      eventId: e.id,
+      eventTitle: e.title,
+      eventStart: e.start_time,
+      venue: e.location,
+      city: e.city,
+      driverId: d.user_id,
+      driverName: p?.name ?? "Sooner",
+      carModel: p?.car_model ?? null,
+      mpg: p?.mpg ?? null,
+      verified: !!p?.license_verified_at,
+      rating: rating ? Number(rating.rating) : null,
+      reviews: rating ? Number(rating.reviews) : 0,
+      latestReview: review
+        ? { comment: review.comment, rating: review.rating, reviewerName: reviewerNames.get(review.reviewer_id)?.name ?? "A rider" }
+        : null,
+      pickupPoint: d.pickup_point,
+      departTime: d.depart_time,
+      seats: d.seats ?? 0,
+      seatsLeft: Math.max(0, (d.seats ?? 0) - taken),
+      isMine: d.user_id === userId,
+      myRole: myRoles.get(d.event_id) ?? null,
+    };
+  });
+}
+
+export type ReviewItem = {
+  reviewerName: string;
+  driverName: string;
+  eventTitle: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+};
+
+// Latest reviews riders left for drivers, newest first.
+export async function getRecentReviews(supabase: SupabaseClient, limit = 8): Promise<ReviewItem[]> {
+  const rows = must(
+    await supabase
+      .from("reviews")
+      .select("reviewer_id, reviewee_id, rating, comment, created_at, trips(events(title))")
+      .order("created_at", { ascending: false })
+      .limit(limit),
+  ) as {
+    reviewer_id: string;
+    reviewee_id: string;
+    rating: number;
+    comment: string | null;
+    created_at: string;
+    trips: { events: { title: string } | null } | null;
+  }[];
+  const names = await getProfiles(supabase, rows.flatMap((r) => [r.reviewer_id, r.reviewee_id]));
+  return rows.map((r) => ({
+    reviewerName: names.get(r.reviewer_id)?.name ?? "A rider",
+    driverName: names.get(r.reviewee_id)?.name ?? "A driver",
+    eventTitle: r.trips?.events?.title ?? "a past event",
+    rating: r.rating,
+    comment: r.comment,
     createdAt: r.created_at,
   }));
 }

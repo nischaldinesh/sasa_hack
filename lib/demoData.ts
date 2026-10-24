@@ -523,11 +523,20 @@ export function plateFor(email: string): string {
   for (const ch of email) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const letters = "ABCDEFGHJKLMNPRSTUVWXYZ";
   const l = (n: number) => letters[n % letters.length];
-  return `${l(h)}${l(h >> 5)}${l(h >> 10)}-${String(h % 1000).padStart(3, "0")}`;
+  return `${l(h)}${l(h >>> 5)}${l(h >>> 10)}-${String(h % 1000).padStart(3, "0")}`;
 }
 
-// profiles row for a seeded user (drivers come pre-verified).
+// Demo drivers and most crowd drivers are verified; a few crowd drivers are
+// not, so the Rides tab's "Verified drivers" filter has something to hide.
+const UNVERIFIED_CROWD = new Set(["crowd08@ou.edu", "crowd22@ou.edu", "crowd31@ou.edu"]);
+
+export function isVerifiedDriver(u: Pick<SeedUser, "email" | "mpg">): boolean {
+  return u.mpg !== null && !UNVERIFIED_CROWD.has(u.email);
+}
+
+// profiles row for a seeded user.
 export function profileRow(u: SeedUser, id: string, now = Date.now()) {
+  const verified = isVerifiedDriver(u);
   return {
     id,
     email: u.email,
@@ -536,9 +545,9 @@ export function profileRow(u: SeedUser, id: string, now = Date.now()) {
     year: u.year,
     mpg: u.mpg,
     car_model: u.carModel,
-    license_plate: u.mpg !== null ? plateFor(u.email) : null,
-    license_state: u.mpg !== null ? "OK" : null,
-    license_verified_at: u.mpg !== null ? new Date(now - 30 * DAY).toISOString() : null,
+    license_plate: verified ? plateFor(u.email) : null,
+    license_state: verified ? "OK" : null,
+    license_verified_at: verified ? new Date(now - 30 * DAY).toISOString() : null,
     bio: u.bio,
     orgs: u.orgs,
     interests: u.interests,

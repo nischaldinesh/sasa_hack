@@ -1,4 +1,4 @@
-import EventArt from "@/components/EventArt";
+import EventImage, { creditText } from "@/components/EventImage";
 import { CalendarIcon, PinIcon, TrendingIcon, UsersIcon } from "@/components/Icons";
 import { isTrending } from "@/lib/events";
 import { eventChips } from "@/lib/reasons";
@@ -24,7 +24,11 @@ export function venueLine(event: Pick<EventSummary, "location" | "city">): strin
 export default function EventSwipeCard({ event }: { event: EventSummary }) {
   return (
     <article className="relative h-full select-none overflow-hidden rounded-[28px] bg-zinc-900 text-white shadow-2xl shadow-zinc-400/40">
-      <EventArt category={event.category} className="absolute inset-0" />
+      <EventImage event={event} className="absolute inset-0" sizes="(min-width: 768px) 420px, 100vw" />
+      {event.image_url && (
+        // Keep the white text readable over any photo.
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/10" aria-hidden />
+      )}
       {event.driver_perk && (
         <span className="absolute left-4 top-4 rounded-full bg-amber-400 px-3 py-1.5 text-sm font-bold text-amber-950 shadow">
           🎁 Driver perk
@@ -61,6 +65,7 @@ export default function EventSwipeCard({ event }: { event: EventSummary }) {
             </span>
           ))}
         </div>
+        {creditText(event.image_url) && <p className="mt-1 text-[10px] text-white/60">{creditText(event.image_url)}</p>}
       </div>
     </article>
   );
@@ -71,10 +76,13 @@ export function EventBackCard({ event }: { event: EventSummary }) {
   const chips = chipsFor(event);
   return (
     <article className="flex h-full select-none flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-zinc-400/40">
-      <div className="relative h-28 shrink-0 overflow-hidden">
-        <EventArt category={event.category} className="absolute inset-0" />
+      <div className="relative h-28 shrink-0 overflow-hidden bg-zinc-900">
+        <EventImage event={event} className="absolute inset-0" sizes="420px" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-black/10" aria-hidden />
         <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-          {event.category && <p className="text-xs font-extrabold uppercase tracking-wider text-white/80">{event.category}</p>}
+          {event.category && (
+            <p className="text-xs font-extrabold uppercase tracking-wider text-white/80">{event.category}</p>
+          )}
           <h2 className="truncate text-xl font-black">{event.title}</h2>
         </div>
       </div>
@@ -97,7 +105,8 @@ export function EventBackCard({ event }: { event: EventSummary }) {
           <div className="flex gap-2.5">
             <UsersIcon className="mt-0.5 shrink-0 text-zinc-400" />
             <dd>
-              {event.going} going · {event.interested} interested · {event.openSeats} open {event.openSeats === 1 ? "seat" : "seats"}
+              {event.going} going · {event.interested} interested · {event.openSeats} open{" "}
+              {event.openSeats === 1 ? "seat" : "seats"}
             </dd>
           </div>
         </dl>
@@ -121,10 +130,13 @@ export function EventBackCard({ event }: { event: EventSummary }) {
           </div>
         )}
         <p className="rounded-xl bg-orange-50 p-3 text-sm text-orange-800">
-          {event.registration_url ? "This event needs registration." : "RSVP in the app."} Swipe right and we&apos;ll walk you through it.
+          {event.registration_url ? "This event needs registration." : "RSVP in the app."} Swipe right and we&apos;ll
+          walk you through it.
         </p>
       </div>
-      <p className="shrink-0 border-t border-zinc-100 py-3 text-center text-xs font-semibold text-zinc-400">Tap to flip back</p>
+      <p className="shrink-0 border-t border-zinc-100 py-3 text-center text-xs font-semibold text-zinc-400">
+        Tap to flip back
+      </p>
     </article>
   );
 }

@@ -1,4 +1,6 @@
-// Attribution for event photos in public/events, keyed by image path.
+// Attribution for openly licensed event photos in public/events, keyed by
+// image path. Photos without an entry need no credit (career, sasegm, diwali
+// were generated for this project).
 // CC BY / BY-SA photos must credit the author, license and source. Our copies
 // are resized and re-encoded; BY-SA copies stay under the same license.
 export type PhotoCredit = {
@@ -8,12 +10,7 @@ export type PhotoCredit = {
   source: string | null;
 };
 
-const AI = { author: "AI-generated image", license: "Fish Audio · gpt-image-2", licenseUrl: null, source: null };
-
 export const PHOTO_CREDITS: Record<string, PhotoCredit> = {
-  "/events/career.jpg": AI,
-  "/events/sasegm.jpg": AI,
-  "/events/diwali.jpg": AI,
   "/events/watch.jpg": {
     author: "Jeff Sandquist",
     license: "CC BY 2.0",
